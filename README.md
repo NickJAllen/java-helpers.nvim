@@ -16,14 +16,16 @@ Use your favorite package manager.
 
 ### **lazy.nvim**
 
-An example for lazy.nvim with some quick key bindings to create files. Customize these as you like.
+An example for lazy.nvim with some quick key bindings to create Java files. 
 
 ```
-return {
-  {
+{
     'NickJAllen/java-helpers.nvim',
     cmd = 'JavaHelpersNewFile',
+
+    -- Default options are shown here. If this is left blank then these defaults will be used.
     opts = {
+
         ---Each template has a name and some template source code.
         ---${package_decl} and ${name} will be replaced with the package declaration and name for the Java type being created.
         ---If ${pos} is provided then the cursor will be positioned there ready to type.
@@ -39,6 +41,7 @@ return {
         should_format = true,
 
     },
+
     keys = {
       { '<leader>jn', ':JavaHelpersNewFile<cr>', desc = 'New Java Type' },
       { '<leader>jc', ':JavaHelpersNewFile Class<cr>', desc = 'New Java Class' },
@@ -50,8 +53,7 @@ return {
     dependencies = {
       { 'nvim-lua/plenary.nvim' },
     },
-  },
-}
+},
 
 ```
 
@@ -151,6 +153,36 @@ The plug-in has some built-in templates but you can also define your own or over
                                         ${pos}
                                                     }]],
 	},
+}
+```
+
+To define your own templates simply add them inside the 'templates' of your configuration. For example, here is a lazy.nvim configuration defining a new template:
+
+```
+{
+    'NickJAllen/java-helpers.nvim',
+    cmd = 'JavaHelpersNewFile',
+
+    -- Default options are shown here. If this is left blank then these defaults will be used.
+    opts = {
+
+        ---Each template has a name and some template source code.
+        ---${package_decl} and ${name} will be replaced with the package declaration and name for the Java type being created.
+        ---If ${pos} is provided then the cursor will be positioned there ready to type.
+        ---@type TemplateDefinition[]
+        templates = {
+            {
+                name = "MyCustomTemplate",
+                template = [[${package_decl}public class ${name} extends MyBaseClass {
+                                ${pos}
+                                }]],
+
+            }
+        },
+    },
+    dependencies = {
+      { 'nvim-lua/plenary.nvim' },
+    },
 }
 ```
 
