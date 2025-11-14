@@ -16,15 +16,30 @@ Use your favorite package manager.
 
 ### **lazy.nvim**
 
-{  
-  'your-username/java-helpers.nvim',  
-  lazy \= false, \-- Load at startup for the command to be available  
-  config \= function()  
-    require('java-helpers').setup({  
-      \-- Optional configuration goes here  
-    })  
-  end  
+An example for lazy.nvim with some quick key bindings to create files. Customize these as you like.
+
+```
+return {
+  {
+    'NickJAllen/java-helpers.nvim',
+    dev = true,
+    cmd = 'JavaHelpersNewFile',
+    opts = {},
+    keys = {
+      { '<leader>jn', ':JavaHelpersNewFile<cr>', desc = 'New Java Type' },
+      { '<leader>jc', ':JavaHelpersNewFile Class<cr>', desc = 'New Java Class' },
+      { '<leader>ji', ':JavaHelpersNewFile Interface<cr>', desc = 'New Java Interface' },
+      { '<leader>ja', ':JavaHelpersNewFile Abstract Class<cr>', desc = 'New Abstract Java Class' },
+      { '<leader>jr', ':JavaHelpersNewFile Record<cr>', desc = 'New Java Record' },
+      { '<leader>je', ':JavaHelpersNewFile Enum<cr>', desc = 'New Java Enum' },
+    },
+    dependencies = {
+      { 'nvim-lua/plenary.nvim' },
+    },
+  },
 }
+
+```
 
 ## **🚀 Usage**
 
@@ -60,54 +75,12 @@ The first argument (\<Type\>) supports command-line completion, suggesting avail
 
 ## **🔧 Configuration**
 
-The setup function allows you to override defaults, add custom templates, and change source directory patterns.
-
-require('java-helpers').setup({  
-    \-- Determines package name based on these source directories.  
-    \-- The current path is checked against these patterns.  
-    java\_source\_dirs \= {  
-        "src/main/java",  
-        "src/test/java",  
-        "src"  
-    },
-
-    \-- If true, calls vim.lsp.buf.format() after creation and cursor placement.  
-    should\_format \= true,
-
-    \-- Define custom templates or override built-in ones  
-    templates \= {  
-        {  
-            name \= "TestClass",  
-            template \= \[\[${package\_decl}import org.junit.jupiter.api.Test;
-
-public class ${name}Test {  
-    @Test  
-    void testSomething() {  
-        ${pos}  
-    }  
-}  
-\]\],  
-        },  
-        \-- Overrides the built-in 'Class' template  
-        {  
-            name \= "Class",  
-            template \= \[\[${package\_decl}  
-public final class ${name} {  
-    private ${name}() {}
-
-    ${pos}  
-}  
-\]\],  
-        },  
-    },  
-})
-
 ### **Template Placeholders**
 
 When defining or overriding templates, the following placeholders are processed:
 
 | Placeholder | Description |
 | :---- | :---- |
-| ${package\_decl} | Replaced with package com.example.mypackage;\\n\\n or an empty string if no package is found. |
+| ${package\_decl} | Replaced with a package declaration for the detected package or an empty string if no package could be detected. |
 | ${name} | Replaced with the type name provided by the user (e.g., MyClass). |
 | ${pos} | **Optional.** If present, the cursor is placed at this exact location after the file is created and opened. The placeholder itself is removed from the content. |
