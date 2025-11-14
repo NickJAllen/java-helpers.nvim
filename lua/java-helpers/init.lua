@@ -250,7 +250,9 @@ local function get_current_directory()
 		if vim.bo[buf].buftype == "" then
 			local filepath = vim.api.nvim_buf_get_name(buf)
 
-			return vim.fn.fnamemodify(filepath, ":p:h")
+			if filepath and filepath ~= "" then
+				return vim.fn.fnamemodify(filepath, ":p:h")
+			end
 		end
 	end
 
@@ -438,7 +440,8 @@ end
 ---@param source_dir string The directory where the Java file should be created
 ---@param package_name string The package name.
 local function create_java_file(template, name, source_dir, package_name)
-	local file_path = source_dir .. "/" .. name .. ".java"
+	local file_path = vim.fs.joinpath(source_dir, name .. ".java")
+
 	if vim.fn.filereadable(file_path) == 1 then
 		log.error("File already exists: " .. file_path)
 		return
@@ -480,14 +483,14 @@ end
 ---Adds a template from a template definition (a lua table with name and template keys)
 ---@param template_definition TemplateDefinition
 function M.add_template(template_definition)
-	local name = template_definition["name"]
+	local name = template_definition.name
 
 	if not name then
 		log.error("Template name not provided for template defintion " .. vim.inspect(template_definition))
 		return
 	end
 
-	local template = template_definition["template"]
+	local template = template_definition.template
 
 	if not template then
 		log.error("Template source not provided for template defintion " .. vim.inspect(template_definition))
