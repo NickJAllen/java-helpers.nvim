@@ -1,51 +1,59 @@
--- lua/java-creator-nvim/init.lua
 local M = {}
 
 local log = require("plenary.log").new({ plugin = "java-creator", level = "info" })
 
--- Default configuration
--- Each template has a name and some template source code.
--- ${package_decl} and ${name} will be replaced with the package declaration and name for the Java type being created.
--- If ${pos} is provided then the cursor will be positioned there ready to type.
-local default_config = {
-	templates = {
-		{
-			name = "Class",
-			template = [[${package_decl}public class ${name} {
-    ${pos}
-}]],
-		},
-		{
-			name = "Interface",
-			template = [[${package_decl}public interface ${name} {
-    ${pos}
-}]],
-		},
-		{
-			name = "Abstract Class",
-			template = [[${package_decl}public abstract class ${name} {
-    ${pos} 
-}]],
-		},
-		{
-			name = "Record",
-			template = [[${package_decl}public record ${name}(${pos}) {
-                            
-                            }]],
-		},
-		{
-			name = "Enum",
-			template = [[${package_decl}public enum ${name} {
-    ${pos}
-}]],
-		},
-		{
-			name = "Annotation",
-			template = [[${package_decl}public @interface ${name} {
-                    ${pos}
-            }]],
-		},
+---@class TemplateDefinition
+---@field name string The name of the template
+---@field template string The source of the template
+
+---Bult-in templates - these can't be deleted but they can be overridden
+---@type TemplateDefinition[]
+local builtin_templates = {
+	{
+		name = "Class",
+		template = [[${package_decl}public class ${name} {
+                        ${pos}
+                        }]],
 	},
+	{
+		name = "Interface",
+		template = [[${package_decl}public interface ${name} {
+                        ${pos}
+                        }]],
+	},
+	{
+		name = "Abstract Class",
+		template = [[${package_decl}public abstract class ${name} {
+                        ${pos} 
+                        }]],
+	},
+	{
+		name = "Record",
+		template = [[${package_decl}public record ${name}(${pos}) {
+                                                
+                                                                            }]],
+	},
+	{
+		name = "Enum",
+		template = [[${package_decl}public enum ${name} {
+                        ${pos}
+                        }]],
+	},
+	{
+		name = "Annotation",
+		template = [[${package_decl}public @interface ${name} {
+                                        ${pos}
+                                                    }]],
+	},
+}
+
+-- Default configuration
+local default_config = {
+	-- Each template has a name and some template source code.
+	-- ${package_decl} and ${name} will be replaced with the package declaration and name for the Java type being created.
+	-- If ${pos} is provided then the cursor will be positioned there ready to type.
+	---@type TemplateDefinition[]
+	templates = {},
 
 	-- Defines patters to recognize Java source directories in order to determine the package name.
 	java_source_dirs = { "src/main/java", "src/test/java", "src" },
@@ -55,6 +63,14 @@ local default_config = {
 }
 
 local config = {}
+
+---All defined templates with name as the key and the template source as the value
+---@type table<string, string>
+local all_templates = {}
+
+---All template names defined in order
+---@type string[]
+local all_template_names = {}
 
 ---
 --- Validates if a string is a valid Java identifier and also not a keyword.
@@ -372,28 +388,14 @@ end
 
 ---@return string[] List of all known template names
 local function get_template_names()
-	local names = {}
-
-	for _, template in ipairs(config.templates) do
-		local template_name = template.name
-
-		table.insert(names, template_name)
-	end
-
-	return names
+	return all_template_names
 end
 
 ---Given the name of a template, looks up the template source or nil if not found
 ---@param template_name string
 ---@return string|nil The template source or nil if not found
 local function get_template(template_name)
-	for _, template in ipairs(config.templates) do
-		if template.name == template_name then
-			return template.template
-		end
-	end
-
-	return nil
+	return all_templates[template_name]
 end
 
 ---Asks the user to select one of the available templates to use
@@ -431,7 +433,7 @@ end
 --- Creates the Java file after validating inputs.
 ---@param template string The template source to use
 ---@param name string The type name.
----@param source_dir The directory where the Java file should be created
+---@param source_dir string The directory where the Java file should be created
 ---@param package_name string The package name.
 local function create_java_file(template, name, source_dir, package_name)
 	local file_path = source_dir .. "/" .. name .. ".java"
@@ -460,13 +462,44 @@ local function create_java_file(template, name, source_dir, package_name)
 	end
 end
 
----Adds some new templates.
----@param templates table<string, string> Template name to template source table for the templates to be added
-function M.add_templates(templates)
-	local all_templates = config.templates
+---Adds a new template with the supplied name
+---@param name string The name of the template to add
+---@param template string The template source
+local function add_template(name, template)
+	local is_new_template = all_templates[name] == nil
 
-	for template_name, template in pairs(templates) do
-		all_templates[template_name] = template
+	all_templates[name] = template
+
+	if is_new_template then
+		table.insert(all_template_names, name)
+	end
+end
+
+---Adds a template from a template definition (a lua table with name and template keys)
+---@param template_definition TemplateDefinition
+function M.add_template(template_definition)
+	local name = template_definition["name"]
+
+	if not name then
+		log.error("Template name not provided for template defintion " .. vim.inspect(template_definition))
+		return
+	end
+
+	local template = template_definition["template"]
+
+	if not template then
+		log.error("Template source not provided for template defintion " .. vim.inspect(template_definition))
+		return
+	end
+
+	add_template(name, template)
+end
+
+---Adds some new templates.
+---@param templates TemplateDefinition[] Template definitions to add
+function M.add_templates(templates)
+	for _, template_definition in ipairs(templates) do
+		M.add_template(template_definition)
 	end
 end
 
@@ -504,6 +537,14 @@ end
 ---@param opts table|nil User-provided configuration to override defaults.
 function M.setup(opts)
 	config = vim.tbl_deep_extend("force", default_config, opts or {})
+
+	M.add_templates(builtin_templates)
+
+	local user_templates = config.templates
+
+	if user_templates then
+		M.add_templates(user_templates)
+	end
 
 	vim.api.nvim_create_user_command("JavaNew", function(command_options)
 		M.java_new(command_options.args)
