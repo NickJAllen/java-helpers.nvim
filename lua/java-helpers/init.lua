@@ -28,21 +28,30 @@ local default_config = {
 }]],
 		},
 		{
+			name = "Record",
+			template = [[${package_decl}public record ${name}(${pos}) {
+                            
+                            }]],
+		},
+		{
 			name = "Enum",
 			template = [[${package_decl}public enum ${name} {
     ${pos}
 }]],
 		},
 		{
-			name = "Record",
-			template = [[${package_decl}public record ${name}(${pos}) {
-    
-}]],
+			name = "Annotation",
+			template = [[${package_decl}public @interface ${name} {
+                    ${pos}
+            }]],
 		},
 	},
 
 	-- Defines patters to recognize Java source directories in order to determine the package name.
 	java_source_dirs = { "src/main/java", "src/test/java", "src" },
+
+	-- If true then newly created Java files will be formatted
+	should_format = true,
 }
 
 local config = {}
@@ -390,10 +399,8 @@ end
 ---Asks the user to select one of the available templates to use
 ---@param callback function The function to call with the selected template name.
 local function select_template(callback)
-	local template_names = get_template_names()
-
-	vim.ui.select(template_names, {
-		prompt = "Select Java type:",
+	vim.ui.select(get_template_names(), {
+		prompt = "New Java File",
 	}, callback)
 end
 
@@ -447,6 +454,10 @@ local function create_java_file(template, name, source_dir, package_name)
 
 	vim.cmd("edit " .. file_path)
 	vim.api.nvim_win_set_cursor(0, { cursor_line, cursor_col })
+
+	if config.should_format then
+		vim.lsp.buf.format()
+	end
 end
 
 ---Adds some new templates.
