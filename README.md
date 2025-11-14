@@ -22,7 +22,6 @@ An example for lazy.nvim with some quick key bindings to create files. Customize
 return {
   {
     'NickJAllen/java-helpers.nvim',
-    dev = true,
     cmd = 'JavaHelpersNewFile',
     opts = {},
     keys = {
@@ -45,9 +44,9 @@ return {
 
 The plugin exposes a single user command: :JavaHelpersNewFile.
 
-### **1\. Interactive Creation (Recommended)**
+### **1\. Interactive Creation **
 
-Run the command without any arguments. This opens an interactive selection list (using vim.ui.select) for you to choose the type, and then prompts you for the name.
+Run the command without any arguments. This opens an interactive selection list (using vim.ui.select) for you to choose one of the template, and then prompts you for the name.
 
 :JavaHelpersNewFile
 
@@ -57,16 +56,15 @@ You can provide the type and name directly to skip the interactive prompts.
 
 | Syntax | Description |
 | :---- | :---- |
-| :JavaHelpersNewFile \<Type\> | Selects the Type, then prompts for the Name. |
-| :JavaHelpersNewFile \<Type\> \<Name\> | Creates the file immediately. |
+| :JavaHelpersNewFile \<TemplateName\> | Uses the supplied template name, then prompts for the Name. |
 
 **Examples:**
 
+" Opens a chooser to select the type (class, enum etc) and then afterwards asks for the name
+:JavaHelpersNewFile
+
 " Opens a prompt asking for the class name, then creates the file  
 :JavaHelpersNewFile Class
-
-" Creates a Record named 'User' immediately  
-:JavaHelpersNewFile Record User
 
 " Opens a prompt asking for the name of an Interface  
 :JavaHelpersNewFile Interface
