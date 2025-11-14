@@ -4,6 +4,9 @@ local M = {}
 local log = require("plenary.log").new({ plugin = "java-creator", level = "info" })
 
 -- Default configuration
+-- Each template has a name and some template source code.
+-- ${package_decl} and ${name} will be replaced with the package declaration and name for the Java type being created.
+-- If ${pos} is provided then the cursor will be positioned there ready to type.
 local default_config = {
 	templates = {
 		{
@@ -38,13 +41,14 @@ local default_config = {
 		},
 	},
 
-	src_patterns = { "src/main/java", "src/test/java", "src" },
+	-- Defines patters to recognize Java source directories in order to determine the package name.
+	java_source_dirs = { "src/main/java", "src/test/java", "src" },
 }
 
 local config = {}
 
 ---
---- Validates if a string is a valid Java identifier and not a keyword.
+--- Validates if a string is a valid Java identifier and also not a keyword.
 ---
 ---@param name string The identifier to validate.
 ---@return string|nil The error message or nil if everything is valid
@@ -116,7 +120,7 @@ local function validate_java_name(name)
 	}
 
 	for _, keyword in ipairs(java_keywords) do
-		if name:lower() == keyword then
+		if name == keyword then
 			return "Name cannot be a Java keyword: " .. keyword
 		end
 	end
@@ -140,46 +144,83 @@ local function get_dir(path)
 	end
 end
 
+---@return string|nil
+local function get_neo_tree_current_dir_impl()
+	local manager = require("neo-tree.sources.manager")
+
+	local state = manager.get_state("filesystem")
+	local node = state.tree:get_node()
+	local path = node:get_id()
+
+	if path then
+		return get_dir(path)
+	end
+
+	return nil
+end
+
+---@param buf integer The buffer number to check if it's a neo-tree or not
+---@return string|nil dir_path The path to the current directory in neo tree or nil if the buffer is not a neo tree buffer.
+local function get_neo_tree_current_dir(buf)
+	local file_type = vim.bo[buf].filetype
+
+	if file_type ~= "neo-tree" then
+		return nil
+	end
+
+	local ok, dir = pcall(get_neo_tree_current_dir_impl)
+
+	if not ok then
+		log.error("Could not get current directory in neo tree: " .. tostring(dir))
+		return nil
+	end
+
+	return dir
+end
+
+---@param buf integer The buffer number to check if it's an oil buffer or not
+---@return string|nil dir_path The path to the current directory in the oil buffer or nil if the buffer is not an oil buffer.
+local function get_oil_current_dir(buf)
+	local file_type = vim.bo[buf].filetype
+
+	if file_type ~= "oil" then
+		return nil
+	end
+
+	local filepath = vim.api.nvim_buf_get_name(buf)
+	local prefix = "oil://"
+
+	if not filepath:sub(1, #prefix) == prefix then
+		log.error("File path for oil buffer does not start with " .. prefix)
+		return nil
+	end
+
+	return vim.fn.fnamemodify(filepath:sub(#prefix + 1), ":p:h")
+end
+
 -- Gets the current directory in an intelligent way.
 -- If the user is focused in neo-tree then it retuns the path to the current directory that is selected there.
+-- If the current buffer is an oil buffer then returns the directory of oil.
 -- Otherwise, if the user is editing a file then it uses the current diretory of that file.
--- If neither of those work then it returns vim.fn.getcwd()
+-- If none of those work then it returns vim.fn.getcwd()
 --- @return string
 local function get_current_directory()
 	local buf = vim.api.nvim_get_current_buf()
 
 	if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
-		local file_type = vim.bo[buf].filetype
+		local dir = get_neo_tree_current_dir(buf)
 
-		if file_type == "neo-tree" then
-			local ok, manager = pcall(require, "neo-tree.sources.manager")
-
-			if ok then
-				local state = manager.get_state("filesystem")
-				local node = state.tree:get_node()
-				local path = node:get_id()
-
-				if path then
-					return get_dir(path)
-				end
-			end
+		if dir then
+			return dir
 		end
 
-		if file_type == "oil" then
-			local filepath = vim.api.nvim_buf_get_name(buf)
-			local prefix = "oil://"
+		dir = get_oil_current_dir(buf)
 
-			if filepath:sub(1, #prefix) == prefix then
-				return vim.fn.fnamemodify(filepath:sub(#prefix + 1), ":p:h")
-			end
-
-			log.error("Expected " .. prefix .. " for oil buffer location - ignoring")
-			return vim.fn.getcwd()
+		if dir then
+			return dir
 		end
 
-		local buffer_type = vim.bo[buf].buftype
-
-		if buffer_type == "" then
+		if vim.bo[buf].buftype == "" then
 			local filepath = vim.api.nvim_buf_get_name(buf)
 
 			return vim.fn.fnamemodify(filepath, ":p:h")
@@ -201,7 +242,7 @@ end
 --- @return string | nil source_dir_path
 --- @return string | nil package_name
 local function determine_source_directory_and_package_from_path(path)
-	for _, pattern in ipairs(config.src_patterns) do
+	for _, pattern in ipairs(config.java_source_dirs) do
 		local _, end_index = path:find("/" .. pattern .. "/")
 
 		if end_index then
@@ -266,7 +307,7 @@ local function determine_source_directory_and_package()
 		return source_dir, package_name
 	end
 
-	log.error("Could not determine source directory and package name")
+	log.info("Could not determine source directory and package name so using defalut package")
 	return current_dir, ""
 end
 
