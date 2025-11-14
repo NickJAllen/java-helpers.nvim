@@ -12,38 +12,38 @@ local builtin_templates = {
 	{
 		name = "Class",
 		template = [[${package_decl}public class ${name} {
-                        ${pos}
-                        }]],
+    ${pos}
+}]],
 	},
 	{
 		name = "Interface",
 		template = [[${package_decl}public interface ${name} {
-                        ${pos}
-                        }]],
+    ${pos}
+}]],
 	},
 	{
 		name = "Abstract Class",
 		template = [[${package_decl}public abstract class ${name} {
-                        ${pos} 
-                        }]],
+    ${pos} 
+}]],
 	},
 	{
 		name = "Record",
 		template = [[${package_decl}public record ${name}(${pos}) {
-                                                
-                                                                            }]],
+
+}]],
 	},
 	{
 		name = "Enum",
 		template = [[${package_decl}public enum ${name} {
-                        ${pos}
-                        }]],
+    ${pos}
+}]],
 	},
 	{
 		name = "Annotation",
 		template = [[${package_decl}public @interface ${name} {
-                                        ${pos}
-                                                    }]],
+    ${pos}
+}]],
 	},
 }
 
