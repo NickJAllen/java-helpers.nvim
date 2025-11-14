@@ -49,16 +49,18 @@ local builtin_templates = {
 
 -- Default configuration
 local default_config = {
-	-- Each template has a name and some template source code.
-	-- ${package_decl} and ${name} will be replaced with the package declaration and name for the Java type being created.
-	-- If ${pos} is provided then the cursor will be positioned there ready to type.
+	---Each template has a name and some template source code.
+	---${package_decl} and ${name} will be replaced with the package declaration and name for the Java type being created.
+	---If ${pos} is provided then the cursor will be positioned there ready to type.
 	---@type TemplateDefinition[]
 	templates = {},
 
-	-- Defines patters to recognize Java source directories in order to determine the package name.
+	---Defines patters to recognize Java source directories in order to determine the package name.
+	---@type string[]
 	java_source_dirs = { "src/main/java", "src/test/java", "src" },
 
-	-- If true then newly created Java files will be formatted
+	---If true then newly created Java files will be formatted
+	---@type boolean
 	should_format = true,
 }
 
@@ -506,14 +508,15 @@ end
 ---Creates a new java type using the supplied (optional) template name.
 ---If the template name is not provided then the user will be asked to select one.
 ---@param template_name string|nil The template name to use or nil if user should select one
-function M.java_new(template_name)
+---@param type_name string|nil The type name to create or nil if should ask the user for the name
+function M.create_java_file(template_name, type_name)
 	if not template_name or template_name == "" then
 		select_template(function(selected_template)
 			if not selected_template then
 				return
 			end
 
-			M.java_new(selected_template)
+			M.create_java_file(selected_template)
 		end)
 
 		return
@@ -526,11 +529,17 @@ function M.java_new(template_name)
 		return
 	end
 
-	ask_for_name(template_name, function(name)
-		local source_dir, package_name = determine_source_directory_and_package()
+	local source_dir, package_name = determine_source_directory_and_package()
 
-		create_java_file(template, name, source_dir, package_name)
-	end)
+	if not type_name or type_name == "" then
+		ask_for_name(template_name, function(name)
+			create_java_file(template, name, source_dir, package_name)
+		end)
+
+		return
+	end
+
+	create_java_file(template, type_name, source_dir, package_name)
 end
 
 ---Should be called to initialize this plug-in
@@ -546,8 +555,8 @@ function M.setup(opts)
 		M.add_templates(user_templates)
 	end
 
-	vim.api.nvim_create_user_command("JavaNew", function(command_options)
-		M.java_new(command_options.args)
+	vim.api.nvim_create_user_command("JavaHelpersNewFile", function(command_options)
+		M.create_java_file(command_options.args)
 	end, {
 		nargs = "?",
 		desc = "Create a new Java file",
