@@ -516,7 +516,7 @@ function M.create_java_file(template_name, type_name)
 				return
 			end
 
-			M.create_java_file(selected_template)
+			M.create_java_file(selected_template, type_name)
 		end)
 
 		return
