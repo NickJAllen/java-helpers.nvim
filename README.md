@@ -23,7 +23,22 @@ return {
   {
     'NickJAllen/java-helpers.nvim',
     cmd = 'JavaHelpersNewFile',
-    opts = {},
+    opts = {
+        ---Each template has a name and some template source code.
+        ---${package_decl} and ${name} will be replaced with the package declaration and name for the Java type being created.
+        ---If ${pos} is provided then the cursor will be positioned there ready to type.
+        ---@type TemplateDefinition[]
+        templates = {},
+
+        ---Defines patters to recognize Java source directories in order to determine the package name.
+        ---@type string[]
+        java_source_dirs = { "src/main/java", "src/test/java", "src" },
+
+        ---If true then newly created Java files will be formatted
+        ---@type boolean
+        should_format = true,
+
+    },
     keys = {
       { '<leader>jn', ':JavaHelpersNewFile<cr>', desc = 'New Java Type' },
       { '<leader>jc', ':JavaHelpersNewFile Class<cr>', desc = 'New Java Class' },
@@ -44,7 +59,7 @@ return {
 
 The plugin exposes a single user command: :JavaHelpersNewFile.
 
-### **1\. Interactive Creation **
+### **1\. Interactive Creation**
 
 Run the command without any arguments. This opens an interactive selection list (using vim.ui.select) for you to choose one of the template, and then prompts you for the name.
 
@@ -52,7 +67,7 @@ Run the command without any arguments. This opens an interactive selection list 
 
 ### **2\. Direct Creation (Using Arguments)**
 
-You can provide the type and name directly to skip the interactive prompts.
+You can provide the template name directly to skip the interactive prompts.
 
 | Syntax | Description |
 | :---- | :---- |
@@ -60,6 +75,7 @@ You can provide the type and name directly to skip the interactive prompts.
 
 **Examples:**
 
+```
 " Opens a chooser to select the type (class, enum etc) and then afterwards asks for the name
 :JavaHelpersNewFile
 
@@ -68,10 +84,75 @@ You can provide the type and name directly to skip the interactive prompts.
 
 " Opens a prompt asking for the name of an Interface  
 :JavaHelpersNewFile Interface
+```
 
-The first argument (\<Type\>) supports command-line completion, suggesting available templates (Class, Enum, Interface, etc.).
+The argument (\<TemplateName\>) supports command-line completion, suggesting available templates (Class, Enum, Interface, etc.).
 
 ## **🔧 Configuration**
+
+These are the default configuration options:
+
+```
+-- Default configuration
+{
+	---Each template has a name and some template source code.
+	---${package_decl} and ${name} will be replaced with the package declaration and name for the Java type being created.
+	---If ${pos} is provided then the cursor will be positioned there ready to type.
+	---@type TemplateDefinition[]
+	templates = {},
+
+	---Defines patters to recognize Java source directories in order to determine the package name.
+	---@type string[]
+	java_source_dirs = { "src/main/java", "src/test/java", "src" },
+
+	---If true then newly created Java files will be formatted
+	---@type boolean
+	should_format = true,
+}
+```
+
+The plug-in has some built-in templates but you can also define your own or override any the existing ones. The following templates are built-in and can't be removed (just redefined):
+
+```
+{
+	{
+		name = "Class",
+		template = [[${package_decl}public class ${name} {
+                        ${pos}
+                        }]],
+	},
+	{
+		name = "Interface",
+		template = [[${package_decl}public interface ${name} {
+                        ${pos}
+                        }]],
+	},
+	{
+		name = "Abstract Class",
+		template = [[${package_decl}public abstract class ${name} {
+                        ${pos} 
+                        }]],
+	},
+	{
+		name = "Record",
+		template = [[${package_decl}public record ${name}(${pos}) {
+                                                
+                                                                            }]],
+	},
+	{
+		name = "Enum",
+		template = [[${package_decl}public enum ${name} {
+                        ${pos}
+                        }]],
+	},
+	{
+		name = "Annotation",
+		template = [[${package_decl}public @interface ${name} {
+                                        ${pos}
+                                                    }]],
+	},
+}
+```
 
 ### **Template Placeholders**
 
