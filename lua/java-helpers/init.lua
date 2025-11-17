@@ -67,7 +67,7 @@ local default_config = {
 local config = {}
 
 ---All defined templates with name as the key and the template source as the value
----@type table<string, string>
+---@type table<string, TemplateDefinition>
 local all_templates = {}
 
 ---All template names defined in order
@@ -397,9 +397,11 @@ end
 
 ---Given the name of a template, looks up the template source or nil if not found
 ---@param template_name string
----@return string|nil The template source or nil if not found
+---@return TemplateDefinition|nil template_definition The template source or nil if not found
 local function get_template(template_name)
-	return all_templates[template_name]
+	local name_lower = string.lower(template_name)
+
+	return all_templates[name_lower]
 end
 
 ---Asks the user to select one of the available templates to use
@@ -436,9 +438,9 @@ end
 
 --- Creates the Java file after validating inputs.
 ---@param template string The template source to use
----@param name string The type name.
+---@param name string The name of the type to create
 ---@param source_dir string The directory where the Java file should be created
----@param package_name string The package name.
+---@param package_name string The package name
 local function create_java_file(template, name, source_dir, package_name)
 	local file_path = vim.fs.joinpath(source_dir, name .. ".java")
 
@@ -467,16 +469,16 @@ local function create_java_file(template, name, source_dir, package_name)
 	end
 end
 
----Adds a new template with the supplied name
----@param name string The name of the template to add
----@param template string The template source
-local function add_template(name, template)
-	local is_new_template = all_templates[name] == nil
+---Adds a new template with the supplied definition
+---@param template_definition TemplateDefinition
+local function add_template(template_definition)
+	local name_lower = string.lower(template_definition.name)
+	local is_new_template = all_templates[name_lower] == nil
 
-	all_templates[name] = template
+	all_templates[name_lower] = template_definition
 
 	if is_new_template then
-		table.insert(all_template_names, name)
+		table.insert(all_template_names, template_definition.name)
 	end
 end
 
@@ -497,7 +499,7 @@ function M.add_template(template_definition)
 		return
 	end
 
-	add_template(name, template)
+	add_template(template_definition)
 end
 
 ---Adds some new templates.
@@ -525,17 +527,19 @@ function M.create_java_file(template_name, type_name)
 		return
 	end
 
-	local template = get_template(template_name)
+	local template_definition = get_template(template_name)
 
-	if not template then
+	if not template_definition then
 		log.error("No template with name " .. template_name)
 		return
 	end
 
+	local template = template_definition.template
+
 	local source_dir, package_name = determine_source_directory_and_package()
 
 	if not type_name or type_name == "" then
-		ask_for_name(template_name, function(name)
+		ask_for_name(template_definition.name, function(name)
 			create_java_file(template, name, source_dir, package_name)
 		end)
 

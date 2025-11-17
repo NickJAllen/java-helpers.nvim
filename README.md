@@ -16,14 +16,15 @@ Use your favorite package manager.
 
 ### **lazy.nvim**
 
-An example for lazy.nvim with some quick key bindings to create Java files. 
+An example for lazy.nvim with some quick key bindings to create Java files:
 
 ```
 {
     'NickJAllen/java-helpers.nvim',
+
     cmd = 'JavaHelpersNewFile',
 
-    -- Default options are shown here. If this is left blank then these defaults will be used.
+    -- Default options are shown here. If opts is missing or left empty then these defaults will be used.
     opts = {
 
         ---Each template has a name and some template source code.
@@ -50,6 +51,7 @@ An example for lazy.nvim with some quick key bindings to create Java files.
       { '<leader>jr', ':JavaHelpersNewFile Record<cr>', desc = 'New Java Record' },
       { '<leader>je', ':JavaHelpersNewFile Enum<cr>', desc = 'New Java Enum' },
     },
+
     dependencies = {
       { 'nvim-lua/plenary.nvim' },
     },
@@ -63,13 +65,13 @@ The plugin exposes a single user command: :JavaHelpersNewFile.
 
 ### **1\. Interactive Creation**
 
-Run the command without any arguments. This opens an interactive selection list (using vim.ui.select) for you to choose one of the template, and then prompts you for the name.
+Run the command without any arguments. This opens an interactive selection list (using vim.ui.select) for you to choose one of the templates, and then prompts you for the name.
 
 :JavaHelpersNewFile
 
 ### **2\. Direct Creation (Using Arguments)**
 
-You can provide the template name directly to skip the interactive prompts.
+You can also provide the template name directly to skip the interactive prompt for template selection.
 
 | Syntax | Description |
 | :---- | :---- |
@@ -88,7 +90,7 @@ You can provide the template name directly to skip the interactive prompts.
 :JavaHelpersNewFile Interface
 ```
 
-The argument (\<TemplateName\>) supports command-line completion, suggesting available templates (Class, Enum, Interface, etc.).
+The argument (\<TemplateName\>) supports command-line completion, suggesting available templates (Class, Enum, Interface, etc.). The name is case insensitive.
 
 ## **🔧 Configuration**
 
@@ -120,38 +122,38 @@ The plug-in has some built-in templates but you can also define your own or over
 	{
 		name = "Class",
 		template = [[${package_decl}public class ${name} {
-                        ${pos}
-                        }]],
+    ${pos}
+}]],
 	},
 	{
 		name = "Interface",
 		template = [[${package_decl}public interface ${name} {
-                        ${pos}
-                        }]],
+    ${pos}
+}]],
 	},
 	{
 		name = "Abstract Class",
 		template = [[${package_decl}public abstract class ${name} {
-                        ${pos} 
-                        }]],
+    ${pos} 
+}]],
 	},
 	{
 		name = "Record",
 		template = [[${package_decl}public record ${name}(${pos}) {
-                                                
-                                                                            }]],
+
+}]],
 	},
 	{
 		name = "Enum",
 		template = [[${package_decl}public enum ${name} {
-                        ${pos}
-                        }]],
+    ${pos}
+}]],
 	},
 	{
 		name = "Annotation",
 		template = [[${package_decl}public @interface ${name} {
-                                        ${pos}
-                                                    }]],
+    ${pos}
+}]],
 	},
 }
 ```
@@ -163,7 +165,6 @@ To define your own templates simply add them inside the 'templates' of your conf
     'NickJAllen/java-helpers.nvim',
     cmd = 'JavaHelpersNewFile',
 
-    -- Default options are shown here. If this is left blank then these defaults will be used.
     opts = {
 
         ---Each template has a name and some template source code.
@@ -174,8 +175,8 @@ To define your own templates simply add them inside the 'templates' of your conf
             {
                 name = "MyCustomTemplate",
                 template = [[${package_decl}public class ${name} extends MyBaseClass {
-                                ${pos}
-                                }]],
+    ${pos}
+}]],
 
             }
         },
