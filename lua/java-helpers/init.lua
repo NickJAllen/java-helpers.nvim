@@ -205,6 +205,26 @@ local function get_neo_tree_current_dir(buf)
 	return dir
 end
 
+local function get_snacks_current_dir(picker)
+	local has_snacks, Snacks = pcall(require, "snacks")
+	if not has_snacks then
+		return nil
+	end
+
+	-- 1. Use the passed picker if it exists
+	if picker and picker.dir then
+		return vim.fs.normalize(picker:dir())
+	end
+
+	-- 2. If no picker was passed (like from a command), grab the active one
+	local active_picker = Snacks.picker.get({ source = "explorer" })[1]
+	if active_picker then
+		return vim.fs.normalize(active_picker:dir())
+	end
+
+	return nil
+end
+
 ---@param buf integer The buffer number to check if it's an oil buffer or not
 ---@return string|nil dir_path The path to the current directory in the oil buffer or nil if the buffer is not an oil buffer.
 local function get_oil_current_dir(buf)
@@ -231,11 +251,17 @@ end
 -- Otherwise, if the user is editing a file then it uses the current diretory of that file.
 -- If none of those work then it returns vim.fn.getcwd()
 --- @return string
-local function get_current_directory()
+local function get_current_directory(picker)
+	local dir = get_snacks_current_dir(picker)
+
+	if dir then
+		return dir
+	end
+
 	local buf = vim.api.nvim_get_current_buf()
 
 	if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
-		local dir = get_neo_tree_current_dir(buf)
+		dir = get_neo_tree_current_dir(buf)
 
 		if dir then
 			return dir
@@ -317,8 +343,8 @@ end
 
 --- @return string source_dir_path
 --- @return string package_name
-local function determine_source_directory_and_package()
-	local current_dir = get_current_directory()
+local function determine_source_directory_and_package(picker)
+	local current_dir = get_current_directory(picker)
 
 	local source_dir, package_name = determine_source_directory_and_package_from_path(current_dir)
 
@@ -514,14 +540,14 @@ end
 ---If the template name is not provided then the user will be asked to select one.
 ---@param template_name string|nil The template name to use or nil if user should select one
 ---@param type_name string|nil The type name to create or nil if should ask the user for the name
-function M.create_java_file(template_name, type_name)
+function M.create_java_file(template_name, type_name, picker)
 	if not template_name or template_name == "" then
 		select_template(function(selected_template)
 			if not selected_template then
 				return
 			end
 
-			M.create_java_file(selected_template, type_name)
+			M.create_java_file(selected_template, type_name, picker)
 		end)
 
 		return
@@ -536,7 +562,7 @@ function M.create_java_file(template_name, type_name)
 
 	local template = template_definition.template
 
-	local source_dir, package_name = determine_source_directory_and_package()
+	local source_dir, package_name = determine_source_directory_and_package(picker)
 
 	if not type_name or type_name == "" then
 		ask_for_name(template_definition.name, function(name)
