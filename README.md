@@ -1,9 +1,11 @@
 # **java-helpers.nvim**
 
-A lightweight Neovim plugin written in Lua for quickly creating new Java files (Classes, Interfaces, Enums, Records, etc.) with the correct package declaration automatically determined from the current buffer or file explorer context.
+A lightweight Neovim plugin written in Lua for quickly navigating printed Java stack traces and creating new Java files (Classes, Interfaces, Enums, Records, etc.) with the correct package declaration automatically determined from the current buffer or file explorer context.
 
 ## **✨ Features**
 
+* **Ability to jump to any Java stack trace line in a printed Java stack trace (for example in a debug output console)
+* **Quickly navigate up and down the Java stack trace
 * **Automatic Package Detection:** Intelligent determination of the correct package declaration based on standard Maven/Gradle source directories (src/main/java, src/test/java, etc.) and the current file path.  
 * **Context-Aware Creation:** Works from a regular buffer, or while selecting a directory in file explorers like **Neo-tree** or **Oil.nvim**.  
 * **Template-Based:** Ships with built-in templates for common Java types (Class, Interface, Enum, Record, Annotation, Abstract Class).  
