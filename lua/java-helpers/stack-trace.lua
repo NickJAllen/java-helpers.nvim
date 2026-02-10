@@ -235,6 +235,7 @@ function M.go_to_bottom_of_stack_trace()
 	end
 
 	local element = loaded_stack_trace[1]
+	current_loaded_stack_trace_index = 1
 
 	go_to_java_stack_trace_element(element)
 end
@@ -247,6 +248,7 @@ function M.go_to_top_of_stack_trace()
 	end
 
 	local count = #loaded_stack_trace
+	current_loaded_stack_trace_index = count
 	local element = loaded_stack_trace[count]
 
 	go_to_java_stack_trace_element(element)
