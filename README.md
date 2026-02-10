@@ -4,8 +4,8 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
 
 ## **✨ Features**
 
-* **Ability to jump to any Java stack trace line in a printed Java stack trace (for example in a debug output console)
-* **Quickly navigate up and down the Java stack trace
+* Ability to jump to any Java stack trace line in a printed Java stack trace (for example in a debug output console)
+* Quickly navigate up and down or to the top or bottom of the Java stack trace
 * **Automatic Package Detection:** Intelligent determination of the correct package declaration based on standard Maven/Gradle source directories (src/main/java, src/test/java, etc.) and the current file path.  
 * **Context-Aware Creation:** Works from a regular buffer, or while selecting a directory in file explorers like **Neo-tree** or **Oil.nvim**.  
 * **Template-Based:** Ships with built-in templates for common Java types (Class, Interface, Enum, Record, Annotation, Abstract Class).  
@@ -18,7 +18,7 @@ Use your favorite package manager.
 
 ### **lazy.nvim**
 
-An example for lazy.nvim with some quick key bindings to create Java files:
+An example for lazy.nvim with some quick key bindings to navigate Java stack traces and to create Java files:
 
 ```
 {
@@ -75,7 +75,14 @@ An example for lazy.nvim with some quick key bindings to create Java files:
 
 ## **🚀 Usage**
 
-The plugin exposes a single user command: :JavaHelpersNewFile.
+The plugin exposes the following user commands: 
+
+* JavaHelpersNewFile
+* JavaHelpersGoToStackTraceLine
+* JavaHelpersGoUpStackTrace
+* JavaHelpersGoDownStackTrace
+* JavaHelpersGoToTopStackTrace
+* JavaHelpersGoToBottomOfStackTrace
 
 ### **1\. Interactive Creation**
 
