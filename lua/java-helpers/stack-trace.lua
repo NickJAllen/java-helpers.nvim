@@ -15,7 +15,7 @@ local current_loaded_stack_trace_index = 0
 ---@return JavaStackTraceElement | nil The parsed java stack trace element or nil if could not be parsed
 local function parse_java_stack_trace_line(line)
 	local class_name, file_name, line_number_string =
-		line:match(".*%s*at ([%w%.]+)%.[%w_]+%(([%w%.%-]+%.java):(%d+)%).*")
+		line:match(".*%s*at ([%w%._]+)%.%<?[%w_]+%>?%(([%w%.%-]+%.java):(%d+)%).*")
 
 	if not class_name then
 		return nil
