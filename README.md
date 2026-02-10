@@ -24,7 +24,14 @@ An example for lazy.nvim with some quick key bindings to create Java files:
 {
     'NickJAllen/java-helpers.nvim',
 
-    cmd = 'JavaHelpersNewFile',
+    cmd = {
+      'JavaHelpersNewFile',
+      'JavaHelpersGoToStackTraceLine',
+      'JavaHelpersGoUpStackTrace',
+      'JavaHelpersGoDownStackTrace',
+      'JavaHelpersGoToBottomOfStackTrace',
+      'JavaHelpersGoToTopOfStackTrace',
+    },
 
     -- Default options are shown here. If opts is missing or left empty then these defaults will be used.
     opts = {
@@ -52,6 +59,11 @@ An example for lazy.nvim with some quick key bindings to create Java files:
       { '<leader>ja', ':JavaHelpersNewFile Abstract Class<cr>', desc = 'New Abstract Java Class' },
       { '<leader>jr', ':JavaHelpersNewFile Record<cr>', desc = 'New Java Record' },
       { '<leader>je', ':JavaHelpersNewFile Enum<cr>', desc = 'New Java Enum' },
+      { '<leader>js', ':JavaHelpersGoToStackTraceLine<cr>', desc = 'Go to Java stack trace line' },
+      { '[j', ':JavaHelpersGoUpStackTrace<cr>', desc = 'Go up Java stack trace' },
+      { ']j', ':JavaHelpersGoDownStackTrace<cr>', desc = 'Go down Java stack trace' },
+      { '<leader>[j', ':JavaHelpersGoToTopOfStackTrace<cr>', desc = 'Go to top of Java stack trace' },
+      { '<leader>]j', ':JavaHelpersGoToBottomOfStackTrace<cr>', desc = 'Go to bottom of Java stack trace' },
     },
 
     dependencies = {
