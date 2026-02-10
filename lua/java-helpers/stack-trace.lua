@@ -227,6 +227,31 @@ function M.go_down_java_stack_trace()
 	go_to_java_stack_trace_element(element)
 end
 
+function M.go_to_bottom_of_stack_trace()
+	load_java_stace_trace_if_needed()
+
+	if not loaded_stack_trace then
+		return
+	end
+
+	local element = loaded_stack_trace[1]
+
+	go_to_java_stack_trace_element(element)
+end
+
+function M.go_to_top_of_stack_trace()
+	load_java_stace_trace_if_needed()
+
+	if not loaded_stack_trace then
+		return
+	end
+
+	local count = #loaded_stack_trace
+	local element = loaded_stack_trace[count]
+
+	go_to_java_stack_trace_element(element)
+end
+
 function M.go_up_java_stack_trace()
 	load_java_stace_trace_if_needed()
 
@@ -257,6 +282,12 @@ function M.setup(opts)
 	})
 	vim.api.nvim_create_user_command("JavaHelpersGoUpStackTrace", M.go_up_java_stack_trace, {
 		desc = "Go up Java stack trace",
+	})
+	vim.api.nvim_create_user_command("JavaHelpersGoToBottomOfStackTrace", M.go_to_bottom_of_stack_trace, {
+		desc = "Go to bottom of Java stack trace",
+	})
+	vim.api.nvim_create_user_command("JavaHelpersGoToTopOfStackTrace", M.go_to_top_of_stack_trace, {
+		desc = "Go to top of Java stack trace",
 	})
 end
 
