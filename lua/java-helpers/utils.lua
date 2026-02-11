@@ -105,6 +105,46 @@ function M.find_line_col(text, substring)
 	return nil, nil
 end
 
+---@return table|nil picker The snacks picker that is for the supplied buffer
+local function get_snacks_explorer_for_buffer(buf)
+	local file_type = vim.bo[buf].filetype
+
+	if file_type ~= "snacks_picker_list" then
+		return nil
+	end
+
+	local has_snacks, Snacks = pcall(require, "snacks")
+
+	if not has_snacks then
+		return nil
+	end
+
+	for i, picker in ipairs(Snacks.picker.get({ source = "explorer" })) do
+		if picker and picker.layout.wins.list.buf == buf then
+			return picker
+		end
+	end
+
+	return nil
+end
+
+---Determines the current directory selected in Snacks explorer or nil if none
+---@param buf integer The buffer number to check if it's an oil buffer or not
+---@return string|nil dir_path The path to the current directory in the snacks picker
+local function get_snacks_explorer_current_dir(buf)
+	local picker = get_snacks_explorer_for_buffer(buf)
+
+	if picker then
+		local dir = picker:dir()
+
+		if dir then
+			return vim.fs.normalize(dir)
+		end
+	end
+
+	return nil
+end
+
 ---@param buf integer The buffer number to check if it's an oil buffer or not
 ---@return string|nil dir_path The path to the current directory in the oil buffer or nil if the buffer is not an oil buffer.
 local function get_oil_current_dir(buf)
@@ -206,6 +246,12 @@ function M.get_current_directory()
 	local buf = vim.api.nvim_get_current_buf()
 
 	if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
+		local dir = get_snacks_explorer_current_dir(buf)
+
+		if dir then
+			return dir
+		end
+
 		local dir = get_neo_tree_current_dir(buf)
 
 		if dir then
