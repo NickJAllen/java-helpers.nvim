@@ -1,5 +1,7 @@
 local M = {}
 
+local log = require("plenary.log").new({ plugin = "java-helpers", level = "info" })
+
 --- @return boolean
 local function is_editable_window(win)
 	local buf = vim.api.nvim_win_get_buf(win)
@@ -28,7 +30,6 @@ local function select_editable_window()
 	local win = find_editable_window()
 
 	if not win then
-		log.error("No editable window found")
 		return
 	end
 
@@ -119,7 +120,7 @@ local function get_snacks_explorer_for_buffer(buf)
 		return nil
 	end
 
-	for i, picker in ipairs(Snacks.picker.get({ source = "explorer" })) do
+	for _, picker in ipairs(Snacks.picker.get({ source = "explorer" })) do
 		if picker and picker.layout.wins.list.buf == buf then
 			return picker
 		end
