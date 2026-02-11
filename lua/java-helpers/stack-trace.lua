@@ -1,7 +1,7 @@
 local M = {}
 
-local log = require("plenary.log").new({ plugin = "java-helpers", level = "info" })
 local utils = require("java-helpers.utils")
+local log = utils.log
 
 local loaded_stack_trace = nil
 local current_loaded_stack_trace_index = 0
@@ -124,7 +124,7 @@ local function find_java_source_file_for_class(full_class_name, expected_file_na
 	local client = clients[1]
 	local params = { query = full_class_name }
 
-	client.request("workspace/symbol", params, function(err, result, ctx)
+	client.request("workspace/symbol", params, function(err, result, _)
 		if err or not result or vim.tbl_isempty(result) then
 			file_found_callback(nil, "Class not found: " .. full_class_name)
 			return
@@ -275,7 +275,7 @@ function M.go_up_java_stack_trace()
 	go_to_java_stack_trace_element(element)
 end
 
-function M.setup(opts)
+function M.setup(_)
 	vim.api.nvim_create_user_command("JavaHelpersGoToStackTraceLine", M.go_to_current_java_stack_trace_line, {
 		desc = "Go to line in Java stack trace at cursor",
 	})

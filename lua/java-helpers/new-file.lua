@@ -1,7 +1,7 @@
 local M = {}
 
-local log = require("plenary.log").new({ plugin = "java-helpers", level = "info" })
 local utils = require("java-helpers.utils")
+local log = utils.log
 
 ---@class TemplateDefinition
 ---@field name string The name of the template

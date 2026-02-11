@@ -1,6 +1,7 @@
 local M = {}
 
 local log = require("plenary.log").new({ plugin = "java-helpers", level = "info" })
+M.log = log
 
 --- @return boolean
 local function is_editable_window(win)
@@ -216,27 +217,6 @@ local function get_neo_tree_current_dir(buf)
 	return dir
 end
 
----Finds the line and column of the start of the suppied substring in the given text
----@param text string
----@param substring string
----@return integer | nil line Line number (1 based)
----@return integer | nil column Column number (0 based)
-local function find_line_col(text, substring)
-	-- Split text into lines
-	local lines = vim.split(text, "\n", { plain = true })
-
-	for line_num, line_text in ipairs(lines) do
-		local col = string.find(line_text, substring, 1, true) -- plain text search
-		if col then
-			col = col - 1
-
-			return line_num, col
-		end
-	end
-
-	return nil, nil
-end
-
 -- Gets the current directory in an intelligent way.
 -- If the user is focused in neo-tree then it retuns the path to the current directory that is selected there.
 -- If the current buffer is an oil buffer then returns the directory of oil.
@@ -253,7 +233,7 @@ function M.get_current_directory()
 			return dir
 		end
 
-		local dir = get_neo_tree_current_dir(buf)
+		dir = get_neo_tree_current_dir(buf)
 
 		if dir then
 			return dir
