@@ -91,6 +91,10 @@ function M.parse_java_stack_trace_line(line)
 	if not class_name then
 		-- Could be a stack trace line that has a module in it so try that as well
 		class_name, file_name = parse_class_name_and_file(line)
+
+		if not class_name then
+			return nil
+		end
 	end
 
 	-- String off nested class part from class name
