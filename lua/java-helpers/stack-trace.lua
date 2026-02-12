@@ -117,7 +117,7 @@ local function find_java_source_file_for_class(full_class_name, expected_file_na
 	local clients = vim.lsp.get_clients({ name = "jdtls" })
 
 	if #clients == 0 then
-		print("No jdtls client found")
+		log.error("No jdtls client found for stack trace navigation")
 		return
 	end
 
