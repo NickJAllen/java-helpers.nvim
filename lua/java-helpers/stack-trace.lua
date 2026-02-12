@@ -18,7 +18,13 @@ function M.parse_java_stack_trace_line(line)
 		line:match(".*%s*at ([%w%._]+)%.%<?[%w_]+%>?%(([%w%.%-]+%.java):(%d+)%).*")
 
 	if not class_name then
-		return nil
+		-- Could be a stack trace line that has a module in it so try that as well
+		class_name, file_name, line_number_string =
+			line:match(".*%s*at .*/([%w%._]+)%.%<?[%w_]+%>?%(([%w%.%-]+%.java):(%d+)%).*")
+
+		if not class_name then
+			return nil
+		end
 	end
 
 	local line_number = tonumber(line_number_string)

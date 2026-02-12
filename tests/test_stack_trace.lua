@@ -58,6 +58,14 @@ local test_stack_lines = {
 			line_number = 100,
 		},
 	},
+	{
+		line = "at java.base/java.lang.Thread.dumpStack(Thread.java:1383)",
+		expected = {
+			class_name = "java.lang.Thread",
+			file_name = "Thread.java",
+			line_number = 1383,
+		},
+	},
 }
 
 for i, test_stack_line in ipairs(test_stack_lines) do
