@@ -14,5 +14,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Setup Neovim
+      uses: rhysd/action-setup-vim@v1
+
     - name: Run check
       run: make test
