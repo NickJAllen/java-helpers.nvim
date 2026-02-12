@@ -13,7 +13,7 @@ local current_loaded_stack_trace_index = 0
 
 ---@param line string The line to be parsed
 ---@return JavaStackTraceElement | nil The parsed java stack trace element or nil if could not be parsed
-local function parse_java_stack_trace_line(line)
+function M.parse_java_stack_trace_line(line)
 	local class_name, file_name, line_number_string =
 		line:match(".*%s*at ([%w%._]+)%.%<?[%w_]+%>?%(([%w%.%-]+%.java):(%d+)%).*")
 
@@ -47,14 +47,14 @@ end
 
 --- Parses all contiguous stack trace lines around the cursor
 --- @return JavaStackTraceElement[]|nil
---- @return integer The 0 based index where the current line was found in the stack trace
+--- @return integer The 1 based index where the current line was found in the stack trace
 local function parse_java_stack_around_cursor()
 	local bufnr = vim.api.nvim_get_current_buf()
 	local cursor_line = vim.api.nvim_win_get_cursor(0)[1] -- 1-indexed
 	local total_lines = vim.api.nvim_buf_line_count(bufnr)
 
 	local current_text = vim.api.nvim_buf_get_lines(bufnr, cursor_line - 1, cursor_line, false)[1]
-	local current_element = parse_java_stack_trace_line(current_text)
+	local current_element = M.parse_java_stack_trace_line(current_text)
 
 	if not current_element then
 		return nil, 0
@@ -68,7 +68,7 @@ local function parse_java_stack_around_cursor()
 	local up = cursor_line - 1
 	while up >= 1 do
 		local line = vim.api.nvim_buf_get_lines(bufnr, up - 1, up, false)[1]
-		local element = parse_java_stack_trace_line(line)
+		local element = M.parse_java_stack_trace_line(line)
 
 		if element then
 			if not is_same_stack_track_element(element, prev_element) then
@@ -92,7 +92,7 @@ local function parse_java_stack_around_cursor()
 	local down = cursor_line + 1
 	while down <= total_lines do
 		local line = vim.api.nvim_buf_get_lines(bufnr, down - 1, down, false)[1]
-		local element = parse_java_stack_trace_line(line)
+		local element = M.parse_java_stack_trace_line(line)
 
 		if element then
 			if not is_same_stack_track_element(element, prev_element) then
@@ -168,7 +168,7 @@ end
 
 ---@param line string the line that contains the java stack trace text
 function M.go_to_java_stack_trace_line(line)
-	local element = parse_java_stack_trace_line(line)
+	local element = M.parse_java_stack_trace_line(line)
 
 	if not element then
 		log.error("Could not parse Java stack trace line " .. line)
