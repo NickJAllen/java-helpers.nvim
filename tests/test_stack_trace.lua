@@ -93,6 +93,10 @@ local test_stack_lines = {
 			line_number = 1,
 		},
 	},
+	{
+		line = "This is not a stack trace",
+		expected = nil,
+	},
 }
 
 for i, test_stack_line in ipairs(test_stack_lines) do
