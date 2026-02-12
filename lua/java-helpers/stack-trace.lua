@@ -11,21 +11,90 @@ local current_loaded_stack_trace_index = 0
 ---@field file_name string?
 ---@field line_number integer
 
+local begin_regex = "%s*at "
+local module_regex = "[%w%._]+"
+local class_name_regex = "[%w%.%$_]+"
+local method_name_regex = "<?[%w_]+>?"
+local line_number_regex = "%d+"
+local file_name_regexes = { "[%w%.%-]+%.%w+", "Unknown Source", "Native Method" }
+
+---@param with_module boolean
+---@param file_name_regex string
+---@param with_line_number boolean
+local function create_regex(with_module, file_name_regex, with_line_number)
+	local r = begin_regex
+
+	if with_module then
+		r = r .. module_regex .. "/"
+	end
+
+	r = r .. "(" .. class_name_regex .. ")%." .. method_name_regex .. "%((" .. file_name_regex .. ")"
+
+	if with_line_number then
+		r = r .. ":(" .. line_number_regex .. ")"
+	end
+
+	r = r .. "%).*"
+
+	return r
+end
+
+local function parse_class_name_file_and_line_number(line)
+	for _, file_name_regex in ipairs(file_name_regexes) do
+		local regex = create_regex(false, file_name_regex, true)
+
+		local class_name, file_name, line_number_string = line:match(regex)
+
+		if class_name then
+			return class_name, file_name, line_number_string
+		end
+
+		local regex = create_regex(true, file_name_regex, true)
+
+		class_name, file_name, line_number_string = line:match(regex)
+
+		if class_name then
+			return class_name, file_name, line_number_string
+		end
+	end
+
+	return nil
+end
+
+local function parse_class_name_and_file(line)
+	for _, file_name_regex in ipairs(file_name_regexes) do
+		local regex = create_regex(false, file_name_regex, false)
+
+		local class_name, file_name = line:match(regex)
+
+		if class_name then
+			return class_name, file_name
+		end
+
+		local regex = create_regex(true, file_name_regex, false)
+
+		class_name, file_name = line:match(regex)
+
+		if class_name then
+			return class_name, file_name
+		end
+	end
+
+	return nil
+end
+
 ---@param line string The line to be parsed
----@return JavaStackTraceElement | nil The parsed java stack trace element or nil if could not be parsed
+---@return JavaStackTraceElement | nil result The parsed java stack trace element or nil if could not be parsed
 function M.parse_java_stack_trace_line(line)
-	local class_name, file_name, line_number_string =
-		line:match(".*%s*at ([%w%._]+)%.%<?[%w_]+%>?%(([%w%.%-]+%.java):(%d+)%).*")
+	local class_name, file_name, line_number_string = parse_class_name_file_and_line_number(line)
 
 	if not class_name then
 		-- Could be a stack trace line that has a module in it so try that as well
-		class_name, file_name, line_number_string =
-			line:match(".*%s*at .*/([%w%._]+)%.%<?[%w_]+%>?%(([%w%.%-]+%.java):(%d+)%).*")
-
-		if not class_name then
-			return nil
-		end
+		class_name, file_name = parse_class_name_and_file(line)
 	end
+
+	-- String off nested class part from class name
+	class_name = class_name:match("([^%$]+)")
 
 	local line_number = tonumber(line_number_string)
 

@@ -1,5 +1,5 @@
 local new_set = MiniTest.new_set
-local expect, eq = MiniTest.expect, MiniTest.expect.equality
+local eq = MiniTest.expect.equality
 
 -- Create (but not start) child Neovim object
 local child = MiniTest.new_child_neovim()
@@ -22,11 +22,6 @@ local T = new_set({
 
 -- Define main test set of this file
 local T = new_set()
-
----@class JavaStackTraceElement
----@field class_name string
----@field file_name string?
----@field line_number integer
 
 ---@class TestStackLine
 ---@field line string
@@ -64,6 +59,38 @@ local test_stack_lines = {
 			class_name = "java.lang.Thread",
 			file_name = "Thread.java",
 			line_number = 1383,
+		},
+	},
+	{
+		line = "    at com.example.SomeClass$NestedClass.someMethod(Unknown Source)",
+		expected = {
+			class_name = "com.example.SomeClass",
+			file_name = "Unknown Source",
+			line_number = 1,
+		},
+	},
+	{
+		line = "    at com.example.SomeClass$NestedClass.someMethod(SomeClass.java)",
+		expected = {
+			class_name = "com.example.SomeClass",
+			file_name = "SomeClass.java",
+			line_number = 1,
+		},
+	},
+	{
+		line = "    at java.base/java.util.ArrayList$Itr.checkForComodification(Unknown Source)",
+		expected = {
+			class_name = "java.util.ArrayList",
+			file_name = "Unknown Source",
+			line_number = 1,
+		},
+	},
+	{
+		line = "    at java.base/java.util.Collections$UnmodifiableCollection$1.next(Native Method)",
+		expected = {
+			class_name = "java.util.Collections",
+			file_name = "Native Method",
+			line_number = 1,
 		},
 	},
 }
