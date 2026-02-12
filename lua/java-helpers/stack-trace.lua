@@ -53,10 +53,11 @@ local function parse_java_stack_around_cursor()
 	local cursor_line = vim.api.nvim_win_get_cursor(0)[1] -- 1-indexed
 	local total_lines = vim.api.nvim_buf_line_count(bufnr)
 
-	local current_text = vim.api.nvim_buf_get_lines(bufnr, cursor_line - 1, cursor_line, false)[1]
-	local current_element = M.parse_java_stack_trace_line(current_text)
+	local current_line_text = vim.api.nvim_buf_get_lines(bufnr, cursor_line - 1, cursor_line, false)[1]
+	local current_element = M.parse_java_stack_trace_line(current_line_text)
 
 	if not current_element then
+		log.error("No Java stack trace could be parsed at the cursor position for line " .. current_line_text)
 		return nil, 0
 	end
 
