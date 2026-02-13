@@ -3,8 +3,11 @@ local M = {}
 local log = require("plenary.log").new({ plugin = "java-helpers", level = "info" })
 M.log = log
 
---- @return boolean
-local function is_editable_window(win)
+local function can_window_switch_buffers(win)
+	return not vim.wo[win].winfixbuf
+end
+
+local function is_window_editing_a_normal_buffer(win)
 	local buf = vim.api.nvim_win_get_buf(win)
 	local buftype = vim.api.nvim_get_option_value("buftype", { buf = buf })
 
@@ -13,7 +16,13 @@ end
 
 local function find_editable_window()
 	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-		if is_editable_window(win) then
+		if can_window_switch_buffers(win) and is_window_editing_a_normal_buffer(win) then
+			return win
+		end
+	end
+
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+		if can_window_switch_buffers(win) then
 			return win
 		end
 	end
@@ -21,26 +30,31 @@ local function find_editable_window()
 	return nil
 end
 
+---@return boolean success
 local function select_editable_window()
 	local current_win = vim.api.nvim_get_current_win()
 
-	if is_editable_window(current_win) then
-		return
+	if can_window_switch_buffers(current_win) and is_window_editing_a_normal_buffer(current_win) then
+		return true
 	end
 
 	local win = find_editable_window()
 
 	if not win then
-		return
+		return false
 	end
 
 	vim.api.nvim_set_current_win(win)
+	return true
 end
 
 ---@param file_path string
 ---@param line_number integer
 function M.go_to_file_and_line_number(file_path, line_number)
-	select_editable_window()
+	if not select_editable_window() then
+		log.error("Could not find an editable window to use to go to line number")
+		return
+	end
 
 	local bufnr = vim.fn.bufadd(file_path)
 	vim.fn.bufload(bufnr)
