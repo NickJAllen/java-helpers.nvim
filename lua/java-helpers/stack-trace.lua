@@ -2,6 +2,7 @@ local M = {}
 
 local utils = require("java-helpers.utils")
 local log = utils.log
+local java_ls_names = { "jdtls", "java_language_server" }
 
 local loaded_stack_trace = nil
 local current_loaded_stack_trace_index = 0
@@ -39,6 +40,10 @@ local function create_regex(with_module, file_name_regex, with_line_number)
 	return r
 end
 
+---@param line string
+---@return string? class_name
+---@return string? file_path
+---@return integer? line_number
 local function parse_class_name_file_and_line_number(line)
 	for _, file_name_regex in ipairs(file_name_regexes) do
 		local regex = create_regex(false, file_name_regex, true)
@@ -49,7 +54,7 @@ local function parse_class_name_file_and_line_number(line)
 			return class_name, file_name, line_number_string
 		end
 
-		local regex = create_regex(true, file_name_regex, true)
+		regex = create_regex(true, file_name_regex, true)
 
 		class_name, file_name, line_number_string = line:match(regex)
 
@@ -61,6 +66,9 @@ local function parse_class_name_file_and_line_number(line)
 	return nil
 end
 
+---@param line string
+---@return string? class_name
+---@return string? file_path
 local function parse_class_name_and_file(line)
 	for _, file_name_regex in ipairs(file_name_regexes) do
 		local regex = create_regex(false, file_name_regex, false)
@@ -71,7 +79,7 @@ local function parse_class_name_and_file(line)
 			return class_name, file_name
 		end
 
-		local regex = create_regex(true, file_name_regex, false)
+		regex = create_regex(true, file_name_regex, false)
 
 		class_name, file_name = line:match(regex)
 

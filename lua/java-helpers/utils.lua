@@ -14,7 +14,15 @@ local function is_window_editing_a_normal_buffer(win)
 	return buftype == ""
 end
 
+---Tries to find an existing window that should be used for editing a file
+---@return integer win
 local function find_editable_window()
+	local current_win = vim.api.nvim_get_current_win()
+
+	if can_window_switch_buffers(current_win) and is_window_editing_a_normal_buffer(current_win) then
+		return current_win
+	end
+
 	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
 		if can_window_switch_buffers(win) and is_window_editing_a_normal_buffer(win) then
 			return win
@@ -32,12 +40,6 @@ end
 
 ---@return boolean success
 local function select_editable_window()
-	local current_win = vim.api.nvim_get_current_win()
-
-	if can_window_switch_buffers(current_win) and is_window_editing_a_normal_buffer(current_win) then
-		return true
-	end
-
 	local win = find_editable_window()
 
 	if not win then
@@ -269,6 +271,23 @@ function M.get_current_directory()
 	end
 
 	return vim.fn.getcwd()
+end
+
+-- Performs an async request to an LSP server. Must be called from a coroutine.
+---@param client The LSP client to use
+---@param request string The request to invoke
+---@param params string Parameters to the request
+---@result
+function M.lsp_request_async(client, request, params)
+	local co = coroutine.running()
+	-- Ensure we are actually inside a coroutine
+	assert(co, "request_async must be called from within a coroutine")
+
+	client.request(request, params, function(err, result, _)
+		coroutine.resume(co, err, result)
+	end)
+
+	return coroutine.yield()
 end
 
 return M
