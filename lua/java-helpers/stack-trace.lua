@@ -268,23 +268,11 @@ end
 
 ---@param element JavaStackTraceElement
 local function go_to_java_stack_trace_element_in_bg(element)
-	local co = coroutine.create(function(element)
+	local co = coroutine.create(function()
 		go_to_java_stack_trace_element(element)
 	end)
 
-	coroutine.resume(co, element)
-end
-
----@param line string the line that contains the java stack trace text
-function M.go_to_java_stack_trace_line(line)
-	local element = M.parse_java_stack_trace_line(line)
-
-	if not element then
-		log.error("Could not parse Java stack trace line " .. line)
-		return
-	end
-
-	go_to_java_stack_trace_element_in_bg(element)
+	coroutine.resume(co)
 end
 
 local function load_java_stack_trace_around_cursor()
@@ -295,93 +283,75 @@ local function load_java_stack_trace_around_cursor()
 		current_loaded_stack_trace_index = current_index
 		return
 	end
-
-	log.info("No Java stack trace found")
 end
 
-local function load_java_stace_trace_if_needed()
+---@param new_pos_callback function() : integer
+local function navigate_current_stack_trace(new_pos_callback)
 	if not current_loaded_stack_trace then
 		load_java_stack_trace_around_cursor()
 	end
+
+	if not current_loaded_stack_trace then
+		log.info("No Java stack trace found")
+		return
+	end
+
+	assert(#current_loaded_stack_trace >= 1)
+	assert(current_loaded_stack_trace_index >= 1)
+	assert(current_loaded_stack_trace_index <= #current_loaded_stack_trace)
+
+	local new_pos = new_pos_callback()
+
+	assert(new_pos >= 1)
+	assert(new_pos <= #current_loaded_stack_trace)
+
+	local element = current_loaded_stack_trace[new_pos]
+
+	assert(element ~= nil)
+
+	current_loaded_stack_trace_index = new_pos
+
+	go_to_java_stack_trace_element_in_bg(element)
 end
 
 function M.go_to_current_java_stack_trace_line()
-	load_java_stack_trace_around_cursor()
-
-	if not current_loaded_stack_trace then
-		return
-	end
-
-	local element = current_loaded_stack_trace[current_loaded_stack_trace_index]
-
-	go_to_java_stack_trace_element_in_bg(element)
-end
-
-function M.go_down_java_stack_trace()
-	load_java_stace_trace_if_needed()
-
-	if not current_loaded_stack_trace then
-		return
-	end
-
-	if current_loaded_stack_trace_index == 1 then
-		log.info("At bottom of Java stack trace")
-		return
-	end
-
-	current_loaded_stack_trace_index = current_loaded_stack_trace_index - 1
-
-	local element = current_loaded_stack_trace[current_loaded_stack_trace_index]
-
-	go_to_java_stack_trace_element_in_bg(element)
+	navigate_current_stack_trace(function()
+		return current_loaded_stack_trace_index
+	end)
 end
 
 function M.go_to_bottom_of_stack_trace()
-	load_java_stace_trace_if_needed()
-
-	if not current_loaded_stack_trace then
-		return
-	end
-
-	local element = current_loaded_stack_trace[1]
-	current_loaded_stack_trace_index = 1
-
-	go_to_java_stack_trace_element_in_bg(element)
+	navigate_current_stack_trace(function()
+		return 1
+	end)
 end
 
 function M.go_to_top_of_stack_trace()
-	load_java_stace_trace_if_needed()
-
-	if not current_loaded_stack_trace then
-		return
-	end
-
-	local count = #current_loaded_stack_trace
-	current_loaded_stack_trace_index = count
-	local element = current_loaded_stack_trace[count]
-
-	go_to_java_stack_trace_element_in_bg(element)
+	navigate_current_stack_trace(function()
+		return #current_loaded_stack_trace
+	end)
 end
 
 function M.go_up_java_stack_trace()
-	load_java_stace_trace_if_needed()
+	navigate_current_stack_trace(function()
+		if current_loaded_stack_trace_index == #current_loaded_stack_trace then
+			log.info("At top of stack trace")
+			return #current_loaded_stack_trace
+		else
+			return current_loaded_stack_trace_index + 1
+		end
+	end)
+end
 
-	if not current_loaded_stack_trace then
-		return
-	end
-
-	local count = #current_loaded_stack_trace
-
-	if current_loaded_stack_trace_index == count then
-		log.info("At top of Java stack trace")
-		return
-	end
-
-	current_loaded_stack_trace_index = current_loaded_stack_trace_index + 1
-
-	local element = current_loaded_stack_trace[current_loaded_stack_trace_index]
-
-	go_to_java_stack_trace_element_in_bg(element)
+function M.go_down_java_stack_trace()
+	navigate_current_stack_trace(function()
+		if current_loaded_stack_trace_index == 1 then
+			log.info("At bottom of stack trace")
+			return 1
+		else
+			return current_loaded_stack_trace_index - 1
+		end
+	end)
 end
 
 function M.setup(_)
