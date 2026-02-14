@@ -55,7 +55,7 @@ local function parse_class_name_file_and_line_number(line)
 			local class_name, file_name, line_number_string = line:match(regex)
 
 			if class_name then
-				return class_name, file_name, line_number_string
+				return class_name, file_name, tonumber(line_number_string)
 			end
 
 			regex = create_regex(true, file_name_regex, method_name_regex, true)
@@ -63,7 +63,7 @@ local function parse_class_name_file_and_line_number(line)
 			class_name, file_name, line_number_string = line:match(regex)
 
 			if class_name then
-				return class_name, file_name, line_number_string
+				return class_name, file_name, tonumber(line_number_string)
 			end
 		end
 	end
@@ -101,7 +101,7 @@ end
 ---@param line string The line to be parsed
 ---@return JavaStackTraceElement | nil result The parsed java stack trace element or nil if could not be parsed
 function M.parse_java_stack_trace_line(line)
-	local class_name, file_name, line_number_string = parse_class_name_file_and_line_number(line)
+	local class_name, file_name, line_number = parse_class_name_file_and_line_number(line)
 
 	if not class_name then
 		-- Could be a stack trace line that has a module in it so try that as well
@@ -114,8 +114,6 @@ function M.parse_java_stack_trace_line(line)
 
 	-- String off nested class part from class name
 	class_name = class_name:match("([^%$]+)")
-
-	local line_number = tonumber(line_number_string)
 
 	if not line_number then
 		line_number = 1
