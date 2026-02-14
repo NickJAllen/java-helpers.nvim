@@ -276,7 +276,7 @@ end
 -- Performs an async request to an LSP server. Must be called from a coroutine.
 ---@param client The LSP client to use
 ---@param request string The request to invoke
----@param params string Parameters to the request
+---@param params table Parameters to the request
 ---@result
 function M.lsp_request_async(client, request, params)
 	local co = coroutine.running()

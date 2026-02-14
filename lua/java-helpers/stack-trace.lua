@@ -2,9 +2,12 @@ local M = {}
 
 local utils = require("java-helpers.utils")
 local log = utils.log
-local java_ls_names = { "jdtls", "java_language_server" }
+local java_ls_names = {
+	jdtls = true,
+	java_language_server = true,
+}
 
-local loaded_stack_trace = nil
+local current_loaded_stack_trace = nil
 local current_loaded_stack_trace_index = 0
 
 ---@class JavaStackTraceElement
@@ -197,170 +200,158 @@ local function parse_java_stack_around_cursor()
 	return stack_elements, current_line_index
 end
 
---- @param full_class_name string
---- @param expected_file_name string The expected file name we are looking for
---- @param file_found_callback fun(path:string|nil, error:string|nil)
-local function find_java_source_file_for_class(full_class_name, expected_file_name, file_found_callback)
-	local clients = vim.lsp.get_clients({ name = "jdtls" })
+---@return boolean
+local function is_java_client(client)
+	return java_ls_names[client.name]
+end
+
+local function get_java_clients()
+	return vim.tbl_filter(is_java_client, vim.lsp.get_clients())
+end
+
+--- @param full_class_name string Full class name that we want to resolve
+--- @param expected_file_name string The expected file name we are looking for which can be used when multiple results are found to find the most likely
+--- @return string? path The found path or nil
+--- @return string? error The error message or nil
+local function find_java_source_file_for_class(full_class_name, expected_file_name)
+	local clients = get_java_clients()
 
 	if #clients == 0 then
-		log.error("No jdtls client found for stack trace navigation")
-		return
+		return nil, "No Java clients found for resolving stack trace navigation"
 	end
 
-	-- We use the first jdtls client found
-	local client = clients[1]
 	local params = { query = full_class_name }
+	local error = nil
 
-	client.request("workspace/symbol", params, function(err, result, _)
+	for _, client in ipairs(clients) do
+		local err, result = utils.lsp_request_async(client, "workspace/symbol", params)
+
 		if err or not result or vim.tbl_isempty(result) then
-			file_found_callback(nil, "Class not found: " .. full_class_name)
-			return
+			error = "No workspace symbols were found by " .. client.name
 		end
 
-		-- Look for the exact match in the returned symbols
 		for _, symbol in ipairs(result) do
-			-- JDTLS returns the full class name in 'containerName' or 'name'
-			-- depending on the specific symbol kind (Class = 5)
 			if
 				symbol.kind == 5
 				and (symbol.name == full_class_name or symbol.containerName .. "." .. symbol.name == full_class_name)
 			then
 				local uri = symbol.location.uri or symbol.location.targetUri
+
 				if uri then
 					local file_path = vim.uri_to_fname(uri)
 
-					file_found_callback(file_path)
-
-					return
+					return file_path, nil
+				else
+					error = "Workspace symbol did not have a UIR"
 				end
+			else
+				error = "Workspace symbol matching class name " .. full_class_name .. " not found"
 			end
 		end
+	end
 
-		file_found_callback(nil, "Could not find file using workspace symbols for " .. full_class_name)
-	end)
+	return nil, "Could not find file using workspace symbols for " .. full_class_name .. ":" .. error
 end
 
 ---@param element JavaStackTraceElement
 local function go_to_java_stack_trace_element(element)
 	log.trace("Go to " .. element.class_name .. " " .. element.file_name .. " " .. element.line_number)
 
-	find_java_source_file_for_class(element.class_name, element.file_name, function(file_path, error)
-		if file_path then
-			utils.go_to_file_and_line_number(file_path, element.line_number)
+	local file_path, error = find_java_source_file_for_class(element.class_name, element.file_name)
+
+	if file_path then
+		utils.go_to_file_and_line_number(file_path, element.line_number)
+	else
+		log.error(error)
+	end
+end
+
+---@param element JavaStackTraceElement
+local function go_to_java_stack_trace_element_in_bg(element)
+	local co = coroutine.create(function()
+		go_to_java_stack_trace_element(element)
+	end)
+
+	coroutine.resume(co)
+end
+
+local function load_java_stack_trace_around_cursor()
+	local stack_trace, current_index = parse_java_stack_around_cursor()
+
+	if stack_trace then
+		current_loaded_stack_trace = stack_trace
+		current_loaded_stack_trace_index = current_index
+		return
+	end
+end
+
+---@param new_pos_callback function() : integer
+local function navigate_current_stack_trace(new_pos_callback)
+	if not current_loaded_stack_trace then
+		load_java_stack_trace_around_cursor()
+	end
+
+	if not current_loaded_stack_trace then
+		log.info("No Java stack trace found")
+		return
+	end
+
+	assert(#current_loaded_stack_trace >= 1)
+	assert(current_loaded_stack_trace_index >= 1)
+	assert(current_loaded_stack_trace_index <= #current_loaded_stack_trace)
+
+	local new_pos = new_pos_callback()
+
+	assert(new_pos >= 1)
+	assert(new_pos <= #current_loaded_stack_trace)
+
+	local element = current_loaded_stack_trace[new_pos]
+
+	assert(element ~= nil)
+
+	current_loaded_stack_trace_index = new_pos
+
+	go_to_java_stack_trace_element_in_bg(element)
+end
+
+function M.go_to_current_java_stack_trace_line()
+	navigate_current_stack_trace(function()
+		return current_loaded_stack_trace_index
+	end)
+end
+
+function M.go_to_bottom_of_stack_trace()
+	navigate_current_stack_trace(function()
+		return 1
+	end)
+end
+
+function M.go_to_top_of_stack_trace()
+	navigate_current_stack_trace(function()
+		return #current_loaded_stack_trace
+	end)
+end
+
+function M.go_up_java_stack_trace()
+	navigate_current_stack_trace(function()
+		if current_loaded_stack_trace_index == #current_loaded_stack_trace then
+			log.info("At top of stack trace")
+			return #current_loaded_stack_trace
 		else
-			log.error(error)
+			return current_loaded_stack_trace_index + 1
 		end
 	end)
 end
 
----@param line string the line that contains the java stack trace text
-function M.go_to_java_stack_trace_line(line)
-	local element = M.parse_java_stack_trace_line(line)
-
-	if not element then
-		log.error("Could not parse Java stack trace line " .. line)
-		return
-	end
-
-	go_to_java_stack_trace_element(element)
-end
-
-local function load_java_stack_trace()
-	local stack_trace, current_index = parse_java_stack_around_cursor()
-
-	if stack_trace then
-		loaded_stack_trace = stack_trace
-		current_loaded_stack_trace_index = current_index
-		return
-	end
-
-	log.info("No Java stack trace found")
-end
-
-local function load_java_stace_trace_if_needed()
-	if not loaded_stack_trace then
-		load_java_stack_trace()
-	end
-end
-
-function M.go_to_current_java_stack_trace_line()
-	load_java_stack_trace()
-
-	if not loaded_stack_trace then
-		return
-	end
-
-	local element = loaded_stack_trace[current_loaded_stack_trace_index]
-
-	go_to_java_stack_trace_element(element)
-end
-
 function M.go_down_java_stack_trace()
-	load_java_stace_trace_if_needed()
-
-	if not loaded_stack_trace then
-		return
-	end
-
-	if current_loaded_stack_trace_index == 1 then
-		log.info("At bottom of Java stack trace")
-		return
-	end
-
-	current_loaded_stack_trace_index = current_loaded_stack_trace_index - 1
-
-	local element = loaded_stack_trace[current_loaded_stack_trace_index]
-
-	go_to_java_stack_trace_element(element)
-end
-
-function M.go_to_bottom_of_stack_trace()
-	load_java_stace_trace_if_needed()
-
-	if not loaded_stack_trace then
-		return
-	end
-
-	local element = loaded_stack_trace[1]
-	current_loaded_stack_trace_index = 1
-
-	go_to_java_stack_trace_element(element)
-end
-
-function M.go_to_top_of_stack_trace()
-	load_java_stace_trace_if_needed()
-
-	if not loaded_stack_trace then
-		return
-	end
-
-	local count = #loaded_stack_trace
-	current_loaded_stack_trace_index = count
-	local element = loaded_stack_trace[count]
-
-	go_to_java_stack_trace_element(element)
-end
-
-function M.go_up_java_stack_trace()
-	load_java_stace_trace_if_needed()
-
-	if not loaded_stack_trace then
-		return
-	end
-
-	local count = #loaded_stack_trace
-
-	if current_loaded_stack_trace_index == count then
-		log.info("At top of Java stack trace")
-		return
-	end
-
-	current_loaded_stack_trace_index = current_loaded_stack_trace_index + 1
-
-	local element = loaded_stack_trace[current_loaded_stack_trace_index]
-
-	go_to_java_stack_trace_element(element)
+	navigate_current_stack_trace(function()
+		if current_loaded_stack_trace_index == 1 then
+			log.info("At bottom of stack trace")
+			return 1
+		else
+			return current_loaded_stack_trace_index - 1
+		end
+	end)
 end
 
 function M.setup(_)
