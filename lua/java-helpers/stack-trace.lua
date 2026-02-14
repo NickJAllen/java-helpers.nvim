@@ -228,24 +228,26 @@ local function find_java_source_file_for_class(full_class_name, expected_file_na
 
 		if err or not result or vim.tbl_isempty(result) then
 			error = "No workspace symbols were found by " .. client.name
-		end
+		else
+			for _, symbol in ipairs(result) do
+				if
+					symbol.kind == 5
+					and (
+						symbol.name == full_class_name or symbol.containerName .. "." .. symbol.name == full_class_name
+					)
+				then
+					local uri = symbol.location.uri or symbol.location.targetUri
 
-		for _, symbol in ipairs(result) do
-			if
-				symbol.kind == 5
-				and (symbol.name == full_class_name or symbol.containerName .. "." .. symbol.name == full_class_name)
-			then
-				local uri = symbol.location.uri or symbol.location.targetUri
+					if uri then
+						local file_path = vim.uri_to_fname(uri)
 
-				if uri then
-					local file_path = vim.uri_to_fname(uri)
-
-					return file_path, nil
+						return file_path, nil
+					else
+						error = "Workspace symbol did not have a URI"
+					end
 				else
-					error = "Workspace symbol did not have a UIR"
+					error = "Workspace symbol matching class name " .. full_class_name .. " not found"
 				end
-			else
-				error = "Workspace symbol matching class name " .. full_class_name .. " not found"
 			end
 		end
 	end
