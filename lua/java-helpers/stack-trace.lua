@@ -150,19 +150,62 @@ local function contains_stack_trace_element(stack_trace, element)
 	return false
 end
 
+---@param bufnr integer
+---@param line integer
+---@return JavaStackTraceElement? element
+local function parse_java_stack_trace_line_in_buffer(bufnr, line)
+	local line_text = vim.api.nvim_buf_get_lines(bufnr, line - 1, line, false)[1]
+	local element = M.parse_java_stack_trace_line(line_text)
+
+	if element then
+		return element
+	end
+
+	-- Maybe the lines have been  wrapped with a hard <CR> between them
+	-- Try joining with the line above if it is also not valid but works when joined then use that
+
+	if line > 1 then
+		local line_above = vim.api.nvim_buf_get_lines(bufnr, line - 2, line - 1, false)[1]
+
+		if not M.parse_java_stack_trace_line(line_above) then
+			local joined = line_above .. line_text
+			element = M.parse_java_stack_trace_line(joined)
+
+			if element then
+				return element
+			end
+		end
+	end
+
+	local total_lines = vim.api.nvim_buf_line_count(bufnr)
+
+	if line < total_lines then
+		local line_below = vim.api.nvim_buf_get_lines(bufnr, line, line + 1, false)[1]
+
+		if not M.parse_java_stack_trace_line(line_below) then
+			local joined = line_text .. line_below
+			element = M.parse_java_stack_trace_line(joined)
+
+			if element then
+				return element
+			end
+		end
+	end
+
+	return nil
+end
+
 --- Parses all contiguous stack trace lines around the cursor
 --- @return JavaStackTraceElement[]|nil
 --- @return integer The 1 based index where the current line was found in the stack trace
 local function parse_java_stack_around_cursor()
 	local bufnr = vim.api.nvim_get_current_buf()
-	local cursor_line = vim.api.nvim_win_get_cursor(0)[1] -- 1-indexed
 	local total_lines = vim.api.nvim_buf_line_count(bufnr)
-
-	local current_line_text = vim.api.nvim_buf_get_lines(bufnr, cursor_line - 1, cursor_line, false)[1]
-	local current_element = M.parse_java_stack_trace_line(current_line_text)
+	local cursor_line = vim.api.nvim_win_get_cursor(0)[1] -- 1-indexed
+	local current_element = parse_java_stack_trace_line_in_buffer(bufnr, cursor_line)
 
 	if not current_element then
-		log.error("No Java stack trace could be parsed at the cursor position for line " .. current_line_text)
+		log.error("No Java stack trace could be parsed at the cursor position")
 		return nil, 0
 	end
 
@@ -173,8 +216,7 @@ local function parse_java_stack_around_cursor()
 	-- Look Upwards
 	local up = cursor_line - 1
 	while up >= 1 do
-		local line = vim.api.nvim_buf_get_lines(bufnr, up - 1, up, false)[1]
-		local element = M.parse_java_stack_trace_line(line)
+		local element = parse_java_stack_trace_line_in_buffer(bufnr, up)
 
 		if element then
 			if not is_same_stack_track_element(element, prev_element) then
@@ -197,8 +239,7 @@ local function parse_java_stack_around_cursor()
 	-- Look Downwards
 	local down = cursor_line + 1
 	while down <= total_lines do
-		local line = vim.api.nvim_buf_get_lines(bufnr, down - 1, down, false)[1]
-		local element = M.parse_java_stack_trace_line(line)
+		local element = parse_java_stack_trace_line_in_buffer(bufnr, down)
 
 		if element then
 			if not is_same_stack_track_element(element, prev_element) then
