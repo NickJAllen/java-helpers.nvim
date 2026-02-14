@@ -6,6 +6,7 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
 
 * Ability to jump to any line in a Java stack trace (for example printed in a debug output console)
 * Quickly navigate up and down or to the top or bottom of the Java stack trace
+* Send Java stack trace to quickfix list
 * **Automatic Package Detection:** Intelligent determination of the correct package declaration based on standard Maven/Gradle source directories (src/main/java, src/test/java, etc.) and the current file path.  
 * **Context-Aware Creation:** Works from a regular buffer, or while selecting a directory in file explorers like **Snacks Explorer**, **Neo-tree** or **Oil.nvim**.  
 * **Template-Based:** Ships with built-in templates for common Java types (Class, Interface, Enum, Record, Annotation, Abstract Class).  
@@ -31,6 +32,7 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
       'JavaHelpersGoDownStackTrace',
       'JavaHelpersGoToBottomOfStackTrace',
       'JavaHelpersGoToTopOfStackTrace',
+      'JavaHelpersSendStackTraceToQuickfix',
     },
 
     -- Default options are shown here. If opts is missing or left empty then these defaults will be used.
@@ -64,6 +66,7 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
       { ']j', ':JavaHelpersGoDownStackTrace<cr>', desc = 'Go down Java stack trace' },
       { '<leader>[j', ':JavaHelpersGoToTopOfStackTrace<cr>', desc = 'Go to top of Java stack trace' },
       { '<leader>]j', ':JavaHelpersGoToBottomOfStackTrace<cr>', desc = 'Go to bottom of Java stack trace' },
+      { '<leader>jq', ':JavaHelpersSendStackTraceToQuickfix<cr>', desc = 'Send Java stack trace to quickfix list' },
     },
 
     dependencies = {

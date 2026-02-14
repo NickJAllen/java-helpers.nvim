@@ -135,6 +135,19 @@ local function is_same_stack_track_element(e1, e2)
 	return e1.class_name == e2.class_name and e1.file_name == e2.file_name and e1.line_number == e2.line_number
 end
 
+---@param stack_trace JavaStackTraceElement[]
+---@param element JavaStackTraceElement
+---@return boolean
+local function contains_stack_trace_element(stack_trace, element)
+	for _, existing in ipairs(stack_trace) do
+		if is_same_stack_track_element(existing, element) then
+			return true
+		end
+	end
+
+	return false
+end
+
 --- Parses all contiguous stack trace lines around the cursor
 --- @return JavaStackTraceElement[]|nil
 --- @return integer The 1 based index where the current line was found in the stack trace
@@ -357,6 +370,84 @@ function M.go_down_java_stack_trace()
 	end)
 end
 
+---@param element JavaStackTraceElement
+---@return table? item
+local function java_stack_trace_element_to_quickfix_item(element)
+	local path, error = find_java_source_file_for_class(element.class_name, element.file_name)
+
+	if not path then
+		log.error("cannot make qf item:" .. error)
+		return nil
+	end
+
+	return {
+		filename = path,
+		lnum = element.line_number,
+		col = 1,
+		text = element.class_name,
+		type = "E",
+	}
+end
+
+---@param stack_trace JavaStackTraceElement[]
+---@return table?
+local function java_stack_trace_to_quickfix_items(stack_trace)
+	local items = {}
+	local previously_converted = {}
+
+	for _, element in ipairs(stack_trace) do
+		if not contains_stack_trace_element(previously_converted, element) then
+			local item = java_stack_trace_element_to_quickfix_item(element)
+
+			previously_converted[#previously_converted + 1] = element
+
+			if item then
+				items[#items + 1] = item
+			end
+		end
+	end
+
+	if #items > 0 then
+		return items
+	end
+
+	log.error("Could not convert stack trace to quickfix items")
+
+	return nil
+end
+
+---@param stack_trace JavaStackTraceElement[]
+local function send_java_stack_trace_to_quickfix_list(stack_trace)
+	local items = java_stack_trace_to_quickfix_items(stack_trace)
+
+	if items then
+		log.info("Stack trace sent to quickfix list")
+		vim.fn.setqflist(items, "r")
+	end
+end
+
+---@param stack_trace JavaStackTraceElement[]
+local function send_java_stack_trace_to_quickfix_list_in_bg(stack_trace)
+	local co = coroutine.create(function()
+		send_java_stack_trace_to_quickfix_list(stack_trace)
+	end)
+
+	coroutine.resume(co)
+end
+
+function M.send_java_stack_trace_to_quickfix_list()
+	if not current_loaded_stack_trace then
+		load_java_stack_trace_around_cursor()
+	end
+
+	if not current_loaded_stack_trace then
+		log.error("No Java stack trace found to copy to quickfix list")
+		return
+	end
+
+	send_java_stack_trace_to_quickfix_list_in_bg(current_loaded_stack_trace)
+end
+
 function M.setup(_)
 	vim.api.nvim_create_user_command("JavaHelpersGoToStackTraceLine", M.go_to_current_java_stack_trace_line, {
 		desc = "Go to line in Java stack trace at cursor",
@@ -372,6 +463,9 @@ function M.setup(_)
 	})
 	vim.api.nvim_create_user_command("JavaHelpersGoToTopOfStackTrace", M.go_to_top_of_stack_trace, {
 		desc = "Go to top of Java stack trace",
+	})
+	vim.api.nvim_create_user_command("JavaHelpersSendStackTraceToQuickfix", M.send_java_stack_trace_to_quickfix_list, {
+		desc = "Send Java stack trace to Quickfix List",
 	})
 end
 
