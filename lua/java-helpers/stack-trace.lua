@@ -205,7 +205,6 @@ local function parse_java_stack_around_cursor()
 	local current_element = parse_java_stack_trace_line_in_buffer(bufnr, cursor_line)
 
 	if not current_element then
-		log.error("No Java stack trace could be parsed at the cursor position")
 		return nil, 0
 	end
 
@@ -377,7 +376,7 @@ local function navigate_current_stack_trace(new_pos_callback)
 	load_java_stack_trace_around_cursor()
 
 	if not current_loaded_stack_trace then
-		log.info("No Java stack trace found")
+		log.error("No Java stack trace found")
 		return
 	end
 
