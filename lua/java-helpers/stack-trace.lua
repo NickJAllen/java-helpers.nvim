@@ -281,7 +281,6 @@ local function load_java_stack_trace_around_cursor()
 	if stack_trace then
 		current_loaded_stack_trace = stack_trace
 		current_loaded_stack_trace_index = current_index
-		return
 	end
 end
 
@@ -315,6 +314,8 @@ local function navigate_current_stack_trace(new_pos_callback)
 end
 
 function M.go_to_current_java_stack_trace_line()
+	load_java_stack_trace_around_cursor()
+
 	navigate_current_stack_trace(function()
 		return current_loaded_stack_trace_index
 	end)
