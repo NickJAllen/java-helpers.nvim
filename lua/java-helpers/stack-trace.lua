@@ -374,9 +374,7 @@ end
 
 ---@param new_pos_callback function() : integer
 local function navigate_current_stack_trace(new_pos_callback)
-	if not current_loaded_stack_trace then
-		load_java_stack_trace_around_cursor()
-	end
+	load_java_stack_trace_around_cursor()
 
 	if not current_loaded_stack_trace then
 		log.info("No Java stack trace found")
@@ -402,8 +400,6 @@ local function navigate_current_stack_trace(new_pos_callback)
 end
 
 function M.go_to_current_java_stack_trace_line()
-	load_java_stack_trace_around_cursor()
-
 	navigate_current_stack_trace(function()
 		return current_loaded_stack_trace_index
 	end)
@@ -509,9 +505,7 @@ local function send_java_stack_trace_to_quickfix_list_in_bg(stack_trace)
 end
 
 function M.send_java_stack_trace_to_quickfix_list()
-	if not current_loaded_stack_trace then
-		load_java_stack_trace_around_cursor()
-	end
+	load_java_stack_trace_around_cursor()
 
 	if not current_loaded_stack_trace then
 		log.error("No Java stack trace found to copy to quickfix list")
