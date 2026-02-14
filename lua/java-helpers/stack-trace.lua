@@ -444,7 +444,6 @@ local function java_stack_trace_element_to_quickfix_item(element)
 	local path, error = find_java_source_file_for_class(element.class_name, element.file_name)
 
 	if not path then
-		log.error("cannot make qf item:" .. error)
 		return nil
 	end
 
@@ -514,6 +513,109 @@ function M.send_java_stack_trace_to_quickfix_list()
 	send_java_stack_trace_to_quickfix_list_in_bg(current_loaded_stack_trace)
 end
 
+---@param element JavaStackTraceElement
+local function java_stack_trace_element_to_snacks_item(element)
+	local path, error = find_java_source_file_for_class(element.class_name, element.file_name)
+
+	if not path then
+		return nil
+	end
+
+	return {
+		file = path,
+		pos = { tonumber(element.line_number), 0 },
+		text = element.class_name,
+	}
+end
+
+---@param stack_trace JavaStackTraceElement[]
+---@return table? items
+---@return table? item_to_index_map
+local function java_stack_trace_to_snacks_items(stack_trace)
+	local items = {}
+	local previously_converted = {}
+	local item_to_index_map = {}
+
+	for i, element in ipairs(stack_trace) do
+		if not contains_stack_trace_element(previously_converted, element) then
+			local item = java_stack_trace_element_to_snacks_item(element)
+
+			previously_converted[#previously_converted + 1] = element
+
+			if item then
+				items[#items + 1] = item
+				item_to_index_map[item] = i
+			end
+		end
+	end
+
+	if #items > 0 then
+		return items, item_to_index_map
+	end
+
+	log.error("Could not convert stack trace to snacks picker items")
+
+	return nil, nil
+end
+
+---@param stack_trace JavaStackTraceElement[]
+---@param initially_selected integer
+local function pick_java_stack_trace_line(stack_trace, initially_selected)
+	local items, items_to_index_map = java_stack_trace_to_snacks_items(stack_trace)
+
+	if not items then
+		return
+	end
+
+	assert(items_to_index_map)
+
+	local picker = require("snacks.picker")
+
+	picker.pick({
+		source = "stack",
+		items = items,
+		layout = { preset = "vertical" },
+		format = "file",
+		confirm = function(p, item)
+			p:close()
+			if item then
+				utils.go_to_file_and_line_number(item.file, item.pos[1])
+
+				if stack_trace == current_loaded_stack_trace then
+					index = items_to_index_map[item]
+
+					assert(index)
+
+					if index then
+						current_loaded_stack_trace_index = index
+					end
+				end
+			end
+		end,
+	})
+end
+
+---@param stack_trace JavaStackTraceElement[]
+---@param initially_selected integer
+local function pick_java_stack_trace_line_in_bg(stack_trace, initially_selected)
+	local co = coroutine.create(function()
+		pick_java_stack_trace_line(stack_trace, initially_selected)
+	end)
+
+	coroutine.resume(co)
+end
+
+function M.pick_java_stack_trace_line()
+	load_java_stack_trace_around_cursor()
+
+	if not current_loaded_stack_trace then
+		log.error("No Java stack trace for picking")
+		return
+	end
+
+	pick_java_stack_trace_line_in_bg(current_loaded_stack_trace, current_loaded_stack_trace_index)
+end
+
 function M.setup(_)
 	vim.api.nvim_create_user_command("JavaHelpersGoToStackTraceLine", M.go_to_current_java_stack_trace_line, {
 		desc = "Go to line in Java stack trace at cursor",
@@ -532,6 +634,9 @@ function M.setup(_)
 	})
 	vim.api.nvim_create_user_command("JavaHelpersSendStackTraceToQuickfix", M.send_java_stack_trace_to_quickfix_list, {
 		desc = "Send Java stack trace to Quickfix List",
+	})
+	vim.api.nvim_create_user_command("JavaHelpersPickStackTraceLine", M.pick_java_stack_trace_line, {
+		desc = "Pick line frome Java stack trace",
 	})
 end
 

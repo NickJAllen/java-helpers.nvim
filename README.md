@@ -4,8 +4,9 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
 
 ## **✨ Features**
 
-* Ability to jump to any line in a Java stack trace (for example printed in a debug output console)
-* Quickly navigate up and down or to the top or bottom of the Java stack trace
+* Ability to jump to any line in a Java stack trace under the cursor (for example printed in a debug output console)
+* Use Snacks picker to select a line from stack trace under the cursor (or the last used stack trace if none under the cursor)
+* Commands to quickly navigate up and down or to the top or bottom of the Java stack trace
 * Send Java stack trace to quickfix list
 * **Automatic Package Detection:** Intelligent determination of the correct package declaration based on standard Maven/Gradle source directories (src/main/java, src/test/java, etc.) and the current file path.  
 * **Context-Aware Creation:** Works from a regular buffer, or while selecting a directory in file explorers like **Snacks Explorer**, **Neo-tree** or **Oil.nvim**.  
@@ -27,6 +28,7 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
 
     cmd = {
       'JavaHelpersNewFile',
+      'JavaHelpersPickStackTraceLine',
       'JavaHelpersGoToStackTraceLine',
       'JavaHelpersGoUpStackTrace',
       'JavaHelpersGoDownStackTrace',
@@ -62,6 +64,7 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
       { '<leader>ja', ':JavaHelpersNewFile Abstract Class<cr>', desc = 'New Abstract Java Class' },
       { '<leader>jr', ':JavaHelpersNewFile Record<cr>', desc = 'New Java Record' },
       { '<leader>je', ':JavaHelpersNewFile Enum<cr>', desc = 'New Java Enum' },
+      { '<leader>sj', ':JavaHelpersPickStackTraceLine<cr>', desc = 'Pick Java stack trace line' },
       { '<leader>js', ':JavaHelpersGoToStackTraceLine<cr>', desc = 'Go to Java stack trace line' },
       { '[j', ':JavaHelpersGoUpStackTrace<cr>', desc = 'Go up Java stack trace' },
       { ']j', ':JavaHelpersGoDownStackTrace<cr>', desc = 'Go down Java stack trace' },
@@ -88,6 +91,7 @@ The plugin exposes the following user commands:
 * JavaHelpersGoToTopStackTrace
 * JavaHelpersGoToBottomOfStackTrace
 * JavaHelpersSendStackTraceToQuickfix
+* JavaHelpersPickStackTraceLine
 
 ### **1\. Interactive File Creation**
 
