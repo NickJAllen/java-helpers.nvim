@@ -18,14 +18,14 @@ local current_loaded_stack_trace_index = 0
 local begin_regex = "%s*at "
 local module_regex = "[%w%._]+"
 local class_name_regex = "[%w%.%$_]+"
-local method_name_regex = "<?[%w_]+>?"
+local method_name_regexes = { "<?[%w_]+>?", "lambda%$%d+" }
 local line_number_regex = "%d+"
 local file_name_regexes = { "[%w%.%-]+%.%w+", "Unknown Source", "Native Method" }
 
 ---@param with_module boolean
 ---@param file_name_regex string
 ---@param with_line_number boolean
-local function create_regex(with_module, file_name_regex, with_line_number)
+local function create_regex(with_module, file_name_regex, method_name_regex, with_line_number)
 	local r = begin_regex
 
 	if with_module then
@@ -49,20 +49,22 @@ end
 ---@return integer? line_number
 local function parse_class_name_file_and_line_number(line)
 	for _, file_name_regex in ipairs(file_name_regexes) do
-		local regex = create_regex(false, file_name_regex, true)
+		for _, method_name_regex in ipairs(method_name_regexes) do
+			local regex = create_regex(false, file_name_regex, method_name_regex, true)
 
-		local class_name, file_name, line_number_string = line:match(regex)
+			local class_name, file_name, line_number_string = line:match(regex)
 
-		if class_name then
-			return class_name, file_name, line_number_string
-		end
+			if class_name then
+				return class_name, file_name, line_number_string
+			end
 
-		regex = create_regex(true, file_name_regex, true)
+			regex = create_regex(true, file_name_regex, method_name_regex, true)
 
-		class_name, file_name, line_number_string = line:match(regex)
+			class_name, file_name, line_number_string = line:match(regex)
 
-		if class_name then
-			return class_name, file_name, line_number_string
+			if class_name then
+				return class_name, file_name, line_number_string
+			end
 		end
 	end
 
@@ -74,20 +76,22 @@ end
 ---@return string? file_path
 local function parse_class_name_and_file(line)
 	for _, file_name_regex in ipairs(file_name_regexes) do
-		local regex = create_regex(false, file_name_regex, false)
+		for _, method_name_regex in ipairs(method_name_regexes) do
+			local regex = create_regex(false, file_name_regex, method_name_regex, false)
 
-		local class_name, file_name = line:match(regex)
+			local class_name, file_name = line:match(regex)
 
-		if class_name then
-			return class_name, file_name
-		end
+			if class_name then
+				return class_name, file_name
+			end
 
-		regex = create_regex(true, file_name_regex, false)
+			regex = create_regex(true, file_name_regex, method_name_regex, false)
 
-		class_name, file_name = line:match(regex)
+			class_name, file_name = line:match(regex)
 
-		if class_name then
-			return class_name, file_name
+			if class_name then
+				return class_name, file_name
+			end
 		end
 	end
 
@@ -222,11 +226,39 @@ local function get_java_clients()
 	return vim.tbl_filter(is_java_client, vim.lsp.get_clients())
 end
 
+local class_and_expected_file_name_to_file_path_cache = {}
+
+--- @param full_class_name string Full class name that we want to resolve
+--- @param expected_file_name string The expected file name we are looking for which can be used when multiple results are found to find the most likely
+--- @return string? path The found path or nil
+local function get_cached_file_path(full_class_name, expected_file_name)
+	local key = full_class_name .. expected_file_name
+
+	return class_and_expected_file_name_to_file_path_cache[key]
+end
+
+--- @param full_class_name string Full class name that we want to resolve
+--- @param expected_file_name string The expected file name we are looking for which can be used when multiple results are found to find the most likely
+--- @param file_path string
+local function remember_cached_file_path(full_class_name, expected_file_name, file_path)
+	local key = full_class_name .. expected_file_name
+
+	class_and_expected_file_name_to_file_path_cache[key] = file_path
+
+	assert(get_cached_file_path(full_class_name, expected_file_name) == file_path)
+end
+
 --- @param full_class_name string Full class name that we want to resolve
 --- @param expected_file_name string The expected file name we are looking for which can be used when multiple results are found to find the most likely
 --- @return string? path The found path or nil
 --- @return string? error The error message or nil
 local function find_java_source_file_for_class(full_class_name, expected_file_name)
+	local cached_path = get_cached_file_path(full_class_name, expected_file_name)
+
+	if cached_path then
+		return cached_path, nil
+	end
+
 	local clients = get_java_clients()
 
 	if #clients == 0 then
@@ -253,6 +285,8 @@ local function find_java_source_file_for_class(full_class_name, expected_file_na
 
 					if uri then
 						local file_path = vim.uri_to_fname(uri)
+
+						remember_cached_file_path(full_class_name, expected_file_name, file_path)
 
 						return file_path, nil
 					else

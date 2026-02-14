@@ -94,6 +94,14 @@ local test_stack_lines = {
 		},
 	},
 	{
+		line = "        at com.example.MyClass.lambda$0(MyClass.java:596)",
+		expected = {
+			class_name = "com.example.MyClass",
+			file_name = "MyClass.java",
+			line_number = 596,
+		},
+	},
+	{
 		line = "This is not a stack trace",
 		expected = nil,
 	},
