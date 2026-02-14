@@ -54,6 +54,7 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
 
     },
 
+    -- Example keys - change these as you like
     keys = {
       { '<leader>jn', ':JavaHelpersNewFile<cr>', desc = 'New Java Type' },
       { '<leader>jc', ':JavaHelpersNewFile Class<cr>', desc = 'New Java Class' },
@@ -86,14 +87,15 @@ The plugin exposes the following user commands:
 * JavaHelpersGoDownStackTrace
 * JavaHelpersGoToTopStackTrace
 * JavaHelpersGoToBottomOfStackTrace
+* JavaHelpersSendStackTraceToQuickfix
 
-### **1\. Interactive Creation**
+### **1\. Interactive File Creation**
 
 Run the command without any arguments. This opens an interactive selection list (using vim.ui.select) for you to choose one of the templates, and then prompts you for the name.
 
 :JavaHelpersNewFile
 
-### **2\. Direct Creation (Using Arguments)**
+### **2\. Direct File Creation (Using Arguments)**
 
 You can also provide the template name directly to skip the interactive prompt for template selection.
 
