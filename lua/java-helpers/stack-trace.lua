@@ -7,13 +7,17 @@ local java_ls_names = {
 	java_language_server = true,
 }
 
-local current_loaded_stack_trace = nil
-local current_loaded_stack_trace_index = 0
-
 ---@class JavaStackTraceElement
 ---@field class_name string
+---@field method_name string
 ---@field file_name string?
 ---@field line_number integer
+
+---@type JavaStackTraceElement[]?
+local current_loaded_stack_trace = nil
+
+---@type integer
+local current_loaded_stack_trace_index = 0
 
 local begin_regex = "%s*at "
 local module_regex = "[%w%._]+"
@@ -32,7 +36,7 @@ local function create_regex(with_module, file_name_regex, method_name_regex, wit
 		r = r .. module_regex .. "/"
 	end
 
-	r = r .. "(" .. class_name_regex .. ")%." .. method_name_regex .. "%((" .. file_name_regex .. ")"
+	r = r .. "(" .. class_name_regex .. ")%.(" .. method_name_regex .. ")%((" .. file_name_regex .. ")"
 
 	if with_line_number then
 		r = r .. ":(" .. line_number_regex .. ")"
@@ -45,6 +49,7 @@ end
 
 ---@param line string
 ---@return string? class_name
+---@return string? method_name
 ---@return string? file_path
 ---@return integer? line_number
 local function parse_class_name_file_and_line_number(line)
@@ -52,18 +57,18 @@ local function parse_class_name_file_and_line_number(line)
 		for _, method_name_regex in ipairs(method_name_regexes) do
 			local regex = create_regex(false, file_name_regex, method_name_regex, true)
 
-			local class_name, file_name, line_number_string = line:match(regex)
+			local class_name, method_name, file_name, line_number_string = line:match(regex)
 
 			if class_name then
-				return class_name, file_name, tonumber(line_number_string)
+				return class_name, method_name, file_name, tonumber(line_number_string)
 			end
 
 			regex = create_regex(true, file_name_regex, method_name_regex, true)
 
-			class_name, file_name, line_number_string = line:match(regex)
+			class_name, method_name, file_name, line_number_string = line:match(regex)
 
 			if class_name then
-				return class_name, file_name, tonumber(line_number_string)
+				return class_name, method_name, file_name, tonumber(line_number_string)
 			end
 		end
 	end
@@ -73,24 +78,25 @@ end
 
 ---@param line string
 ---@return string? class_name
+---@return string? method_name
 ---@return string? file_path
 local function parse_class_name_and_file(line)
 	for _, file_name_regex in ipairs(file_name_regexes) do
 		for _, method_name_regex in ipairs(method_name_regexes) do
 			local regex = create_regex(false, file_name_regex, method_name_regex, false)
 
-			local class_name, file_name = line:match(regex)
+			local class_name, method_name, file_name = line:match(regex)
 
 			if class_name then
-				return class_name, file_name
+				return class_name, method_name, file_name
 			end
 
 			regex = create_regex(true, file_name_regex, method_name_regex, false)
 
-			class_name, file_name = line:match(regex)
+			class_name, method_name, file_name = line:match(regex)
 
 			if class_name then
-				return class_name, file_name
+				return class_name, method_name, file_name
 			end
 		end
 	end
@@ -98,14 +104,18 @@ local function parse_class_name_and_file(line)
 	return nil
 end
 
+local function get_outer_class_name(full_class_name)
+	return full_class_name:match("([^%$]+)")
+end
+
 ---@param line string The line to be parsed
----@return JavaStackTraceElement | nil result The parsed java stack trace element or nil if could not be parsed
+---@return JavaStackTraceElement? result The parsed java stack trace element or nil if could not be parsed
 function M.parse_java_stack_trace_line(line)
-	local class_name, file_name, line_number = parse_class_name_file_and_line_number(line)
+	local class_name, method_name, file_name, line_number = parse_class_name_file_and_line_number(line)
 
 	if not class_name then
 		-- Could be a stack trace line that has a module in it so try that as well
-		class_name, file_name = parse_class_name_and_file(line)
+		class_name, method_name, file_name = parse_class_name_and_file(line)
 
 		if not class_name then
 			return nil
@@ -113,7 +123,7 @@ function M.parse_java_stack_trace_line(line)
 	end
 
 	-- String off nested class part from class name
-	class_name = class_name:match("([^%$]+)")
+	class_name = get_outer_class_name(class_name)
 
 	if not line_number then
 		line_number = 1
@@ -121,6 +131,7 @@ function M.parse_java_stack_trace_line(line)
 
 	return {
 		class_name = class_name,
+		method_name = method_name,
 		file_name = file_name,
 		line_number = line_number,
 	}
@@ -149,12 +160,54 @@ local function contains_stack_trace_element(stack_trace, element)
 
 	return false
 end
+---
+---@class TextLines
+---@field line_count integer The number of lines in the source
+---@field get_line_text function(line : integer) : string Retrieves a line from the source
 
----@param bufnr integer
+---@param bufnr integer The buffer
+---@param line integer The line number
+local function get_buffer_line(bufnr, line)
+	return vim.api.nvim_buf_get_lines(bufnr, line - 1, line, false)[1]
+end
+
+local function get_buffer_line_count(bufnr)
+	return vim.api.nvim_buf_line_count(bufnr)
+end
+
+---@param bufnr integer The buffer to read lines from
+---@return TextLines
+local function create_text_lines_from_buffer(bufnr)
+	return {
+		line_count = get_buffer_line_count(bufnr),
+		get_line_text = function(line)
+			return get_buffer_line(bufnr, line)
+		end,
+	}
+end
+
+---@param lines_array string[]
+---@return TextLines
+local function create_text_lines_from_array(lines_array)
+	return {
+		line_count = #lines_array,
+		get_line_text = function(line)
+			return lines_array[line]
+		end,
+	}
+end
+
+local function create_text_lines_from_string(text)
+	local lines = vim.split(text, "\n", { plain = true })
+
+	return create_text_lines_from_array(lines)
+end
+
+---@param lines TextLines
 ---@param line integer
 ---@return JavaStackTraceElement? element
-local function parse_java_stack_trace_line_in_buffer(bufnr, line)
-	local line_text = vim.api.nvim_buf_get_lines(bufnr, line - 1, line, false)[1]
+local function parse_java_stack_trace_line_in_lines(lines, line)
+	local line_text = lines.get_line_text(line)
 	local element = M.parse_java_stack_trace_line(line_text)
 
 	if element then
@@ -165,7 +218,7 @@ local function parse_java_stack_trace_line_in_buffer(bufnr, line)
 	-- Try joining with the line above if it is also not valid but works when joined then use that
 
 	if line > 1 then
-		local line_above = vim.api.nvim_buf_get_lines(bufnr, line - 2, line - 1, false)[1]
+		local line_above = lines.get_line_text(line - 1)
 
 		if not M.parse_java_stack_trace_line(line_above) then
 			local joined = line_above .. line_text
@@ -177,10 +230,10 @@ local function parse_java_stack_trace_line_in_buffer(bufnr, line)
 		end
 	end
 
-	local total_lines = vim.api.nvim_buf_line_count(bufnr)
+	local total_lines = lines.line_count
 
 	if line < total_lines then
-		local line_below = vim.api.nvim_buf_get_lines(bufnr, line, line + 1, false)[1]
+		local line_below = lines.get_line_text(line + 1)
 
 		if not M.parse_java_stack_trace_line(line_below) then
 			local joined = line_text .. line_below
@@ -195,14 +248,33 @@ local function parse_java_stack_trace_line_in_buffer(bufnr, line)
 	return nil
 end
 
+---@param lines TextLines The lines to search for first line in
+---@param start_from_line integer The line number (1 based) to start from
+---@return integer? The first line number (1 based) or nil if no line found
+local function find_first_java_stack_trace_line(lines, start_from_line)
+	local line = start_from_line
+
+	while line <= lines.line_count do
+		local element = parse_java_stack_trace_line_in_lines(lines, line)
+
+		if element then
+			return line
+		end
+
+		line = line + 1
+	end
+
+	return nil
+end
+
 --- Parses all contiguous stack trace lines around the cursor
+--- @param lines TextLines
+--- @param cursor_line integer The line around which we should try to parse a stack trace from (looks up and down)
 --- @return JavaStackTraceElement[]|nil
---- @return integer The 1 based index where the current line was found in the stack trace
-local function parse_java_stack_around_cursor()
-	local bufnr = vim.api.nvim_get_current_buf()
-	local total_lines = vim.api.nvim_buf_line_count(bufnr)
-	local cursor_line = vim.api.nvim_win_get_cursor(0)[1] -- 1-indexed
-	local current_element = parse_java_stack_trace_line_in_buffer(bufnr, cursor_line)
+--- @return integer index The 1 based index where the current line was found in the stack trace
+local function parse_java_stack_around_line(lines, cursor_line)
+	local total_lines = lines.line_count
+	local current_element = parse_java_stack_trace_line_in_lines(lines, cursor_line)
 
 	if not current_element then
 		return nil, 0
@@ -215,7 +287,7 @@ local function parse_java_stack_around_cursor()
 	-- Look Upwards
 	local up = cursor_line - 1
 	while up >= 1 do
-		local element = parse_java_stack_trace_line_in_buffer(bufnr, up)
+		local element = parse_java_stack_trace_line_in_lines(lines, up)
 
 		if element then
 			if not is_same_stack_track_element(element, prev_element) then
@@ -238,7 +310,7 @@ local function parse_java_stack_around_cursor()
 	-- Look Downwards
 	local down = cursor_line + 1
 	while down <= total_lines do
-		local element = parse_java_stack_trace_line_in_buffer(bufnr, down)
+		local element = parse_java_stack_trace_line_in_lines(lines, down)
 
 		if element then
 			if not is_same_stack_track_element(element, prev_element) then
@@ -267,10 +339,20 @@ end
 local class_and_expected_file_name_to_file_path_cache = {}
 
 --- @param full_class_name string Full class name that we want to resolve
---- @param expected_file_name string The expected file name we are looking for which can be used when multiple results are found to find the most likely
+--- @param expected_file_name string? The expected file name we are looking for which can be used when multiple results are found to find the most likely
+local function get_cache_key(full_class_name, expected_file_name)
+	if not expected_file_name then
+		return full_class_name
+	end
+
+	return full_class_name .. expected_file_name
+end
+
+--- @param full_class_name string Full class name that we want to resolve
+--- @param expected_file_name string? The expected file name we are looking for which can be used when multiple results are found to find the most likely
 --- @return string? path The found path or nil
 local function get_cached_file_path(full_class_name, expected_file_name)
-	local key = full_class_name .. expected_file_name
+	local key = get_cache_key(full_class_name, expected_file_name)
 
 	return class_and_expected_file_name_to_file_path_cache[key]
 end
@@ -279,7 +361,7 @@ end
 --- @param expected_file_name string The expected file name we are looking for which can be used when multiple results are found to find the most likely
 --- @param file_path string
 local function remember_cached_file_path(full_class_name, expected_file_name, file_path)
-	local key = full_class_name .. expected_file_name
+	local key = get_cache_key(full_class_name, expected_file_name)
 
 	class_and_expected_file_name_to_file_path_cache[key] = file_path
 
@@ -287,7 +369,7 @@ local function remember_cached_file_path(full_class_name, expected_file_name, fi
 end
 
 --- @param full_class_name string Full class name that we want to resolve
---- @param expected_file_name string The expected file name we are looking for which can be used when multiple results are found to find the most likely
+--- @param expected_file_name string? The expected file name we are looking for which can be used when multiple results are found to find the most likely
 --- @return string? path The found path or nil
 --- @return string? error The error message or nil
 local function find_java_source_file_for_class(full_class_name, expected_file_name)
@@ -362,8 +444,70 @@ local function go_to_java_stack_trace_element_in_bg(element)
 	coroutine.resume(co)
 end
 
-local function load_java_stack_trace_around_cursor()
-	local stack_trace, current_index = parse_java_stack_around_cursor()
+---@param text string The text to be parsed and used as a stack trace
+---@return JavaStackTraceElement[]? The parsed Java stack trace elements
+local function parse_java_stack_trace_from_text(text)
+	local lines = create_text_lines_from_string(text)
+	local first_line = find_first_java_stack_trace_line(lines, 1)
+
+	if not first_line then
+		return nil
+	end
+
+	local stack_trace, index = parse_java_stack_around_line(lines, first_line)
+
+	assert(stack_trace)
+	assert(index == 1)
+
+	return stack_trace
+end
+
+---@param name string The name of the register to use as the source of a stack trace
+local function parse_java_stack_track_from_register(name)
+	assert(#name == 1)
+
+	local text = vim.fn.getreg(name)
+
+	return parse_java_stack_trace_from_text(text)
+end
+
+---@param win integer The window id
+local function parse_java_stack_around_cursor(win)
+	local bufnr = vim.api.nvim_win_get_buf(win)
+	local cursor_line = vim.api.nvim_win_get_cursor(win)[1]
+	local lines = create_text_lines_from_buffer(bufnr)
+
+	return parse_java_stack_around_line(lines, cursor_line)
+end
+
+-- Sets up the Java stack trace to be navigated for a command based on the argument provided to it
+---@param register_name_or_text_to_parse string? Optional argument to command that defines a register to use (if just a single character), the string that should be parsed, or if nil uses the stack trace found at the cursor position
+local function setup_stack_trace(register_name_or_text_to_parse)
+	if register_name_or_text_to_parse and #register_name_or_text_to_parse == 1 then
+		-- We want to use a named register
+
+		current_loaded_stack_trace = parse_java_stack_track_from_register(register_name_or_text_to_parse)
+		current_loaded_stack_trace_index = 1
+
+		if not current_loaded_stack_trace then
+			log.error("Could not lead stack trace from register " .. register_name_or_text_to_parse)
+		end
+
+		return
+	end
+
+	if register_name_or_text_to_parse and #register_name_or_text_to_parse > 1 then
+		current_loaded_stack_trace = parse_java_stack_trace_from_text(register_name_or_text_to_parse)
+		current_loaded_stack_trace_index = 1
+
+		if not current_loaded_stack_trace then
+			log.error("Could not lead stack trace from supplied text " .. register_name_or_text_to_parse)
+		end
+
+		return
+	end
+
+	local stack_trace, current_index = parse_java_stack_around_cursor(0)
 
 	if stack_trace then
 		current_loaded_stack_trace = stack_trace
@@ -373,8 +517,6 @@ end
 
 ---@param new_pos_callback function() : integer
 local function navigate_current_stack_trace(new_pos_callback)
-	load_java_stack_trace_around_cursor()
-
 	if not current_loaded_stack_trace then
 		log.error("No Java stack trace found")
 		return
@@ -398,19 +540,28 @@ local function navigate_current_stack_trace(new_pos_callback)
 	go_to_java_stack_trace_element_in_bg(element)
 end
 
-function M.go_to_current_java_stack_trace_line()
+---@param register_name_or_text_to_parse string? If a single character then defines the register name, if multiple characters then will parse trhe supplied text, if nil or empty then uses the text around the current cursor position
+function M.go_to_current_java_stack_trace_line(register_name_or_text_to_parse)
+	setup_stack_trace(register_name_or_text_to_parse)
+
 	navigate_current_stack_trace(function()
 		return current_loaded_stack_trace_index
 	end)
 end
 
-function M.go_to_bottom_of_stack_trace()
+---@param register_name_or_text_to_parse string? If a single character then defines the register name, if multiple characters then will parse trhe supplied text, if nil or empty then uses the text around the current cursor position
+function M.go_to_bottom_of_stack_trace(register_name_or_text_to_parse)
+	setup_stack_trace(register_name_or_text_to_parse)
+
 	navigate_current_stack_trace(function()
 		return 1
 	end)
 end
 
-function M.go_to_top_of_stack_trace()
+---@param register_name_or_text_to_parse string? If a single character then defines the register name, if multiple characters then will parse trhe supplied text, if nil or empty then uses the text around the current cursor position
+function M.go_to_top_of_stack_trace(register_name_or_text_to_parse)
+	setup_stack_trace(register_name_or_text_to_parse)
+
 	navigate_current_stack_trace(function()
 		return #current_loaded_stack_trace
 	end)
@@ -441,7 +592,7 @@ end
 ---@param element JavaStackTraceElement
 ---@return table? item
 local function java_stack_trace_element_to_quickfix_item(element)
-	local path, error = find_java_source_file_for_class(element.class_name, element.file_name)
+	local path, _error = find_java_source_file_for_class(element.class_name, element.file_name)
 
 	if not path then
 		return nil
@@ -502,11 +653,12 @@ local function send_java_stack_trace_to_quickfix_list_in_bg(stack_trace)
 	coroutine.resume(co)
 end
 
-function M.send_java_stack_trace_to_quickfix_list()
-	load_java_stack_trace_around_cursor()
+---@param register_name_or_text_to_parse string? If a single character then defines the register name, if multiple characters then will parse trhe supplied text, if nil or empty then uses the text around the current cursor position
+function M.send_java_stack_trace_to_quickfix_list(register_name_or_text_to_parse)
+	setup_stack_trace(register_name_or_text_to_parse)
 
 	if not current_loaded_stack_trace then
-		log.error("No Java stack trace found to copy to quickfix list")
+		log.error("No Java stack trace found to send to quickfix list")
 		return
 	end
 
@@ -524,7 +676,7 @@ local function java_stack_trace_element_to_snacks_item(element)
 	return {
 		file = path,
 		pos = { tonumber(element.line_number), 0 },
-		text = element.class_name,
+		java_stack_trace_element = element,
 	}
 end
 
@@ -582,9 +734,7 @@ local function pick_java_stack_trace_line(stack_trace, initially_selected)
 				utils.go_to_file_and_line_number(item.file, item.pos[1])
 
 				if stack_trace == current_loaded_stack_trace then
-					index = items_to_index_map[item]
-
-					assert(index)
+					local index = items_to_index_map[item]
 
 					if index then
 						current_loaded_stack_trace_index = index
@@ -605,8 +755,9 @@ local function pick_java_stack_trace_line_in_bg(stack_trace, initially_selected)
 	coroutine.resume(co)
 end
 
-function M.pick_java_stack_trace_line()
-	load_java_stack_trace_around_cursor()
+---@param register_name_or_text_to_parse string? If a single character then defines the register name, if multiple characters then will parse trhe supplied text, if nil or empty then uses the text around the current cursor position
+function M.pick_java_stack_trace_line(register_name_or_text_to_parse)
+	setup_stack_trace(register_name_or_text_to_parse)
 
 	if not current_loaded_stack_trace then
 		log.error("No Java stack trace for picking")
@@ -617,26 +768,47 @@ function M.pick_java_stack_trace_line()
 end
 
 function M.setup(_)
-	vim.api.nvim_create_user_command("JavaHelpersGoToStackTraceLine", M.go_to_current_java_stack_trace_line, {
-		desc = "Go to line in Java stack trace at cursor",
+	vim.api.nvim_create_user_command("JavaHelpersGoToStackTraceLine", function(opts)
+		M.go_to_current_java_stack_trace_line(opts.args)
+	end, {
+		desc = "Go to line in Java stack",
+		nargs = "?",
 	})
+
+	vim.api.nvim_create_user_command("JavaHelpersPickStackTraceLine", function(opts)
+		M.pick_java_stack_trace_line(opts.args)
+	end, {
+		desc = "Pick line frome Java stack trace",
+		nargs = "?",
+	})
+
 	vim.api.nvim_create_user_command("JavaHelpersGoDownStackTrace", M.go_down_java_stack_trace, {
 		desc = "Go down Java stack trace",
 	})
+
 	vim.api.nvim_create_user_command("JavaHelpersGoUpStackTrace", M.go_up_java_stack_trace, {
 		desc = "Go up Java stack trace",
 	})
-	vim.api.nvim_create_user_command("JavaHelpersGoToBottomOfStackTrace", M.go_to_bottom_of_stack_trace, {
+
+	vim.api.nvim_create_user_command("JavaHelpersGoToBottomOfStackTrace", function(opts)
+		M.go_to_bottom_of_stack_trace(opts.args)
+	end, {
 		desc = "Go to bottom of Java stack trace",
+		nargs = "?",
 	})
-	vim.api.nvim_create_user_command("JavaHelpersGoToTopOfStackTrace", M.go_to_top_of_stack_trace, {
+
+	vim.api.nvim_create_user_command("JavaHelpersGoToTopOfStackTrace", function(opts)
+		M.go_to_top_of_stack_trace(opts.args)
+	end, {
 		desc = "Go to top of Java stack trace",
+		nargs = "?",
 	})
-	vim.api.nvim_create_user_command("JavaHelpersSendStackTraceToQuickfix", M.send_java_stack_trace_to_quickfix_list, {
+
+	vim.api.nvim_create_user_command("JavaHelpersSendStackTraceToQuickfix", function(opts)
+		M.send_java_stack_trace_to_quickfix_list(opts.args)
+	end, {
 		desc = "Send Java stack trace to Quickfix List",
-	})
-	vim.api.nvim_create_user_command("JavaHelpersPickStackTraceLine", M.pick_java_stack_trace_line, {
-		desc = "Pick line frome Java stack trace",
+		nargs = "?",
 	})
 end
 
