@@ -26,6 +26,26 @@ local method_name_regexes = { "<?[%w_]+>?", "lambda%$%d+" }
 local line_number_regex = "%d+"
 local file_name_regexes = { "[%w%.%-]+%.%w+", "Unknown Source", "Native Method" }
 
+---@param line string
+---@return boolean
+local function is_more_line(line)
+	local more_regex = "... %d+ more.*"
+
+	local result = line:find(more_regex)
+
+	return result ~= nil
+end
+
+---@param line string
+---@return boolean
+local function is_caused_by_line(line)
+	local caused_by_regex = "Caused by:.*"
+
+	local result = line:find(caused_by_regex)
+
+	return result ~= nil
+end
+
 ---@param with_module boolean
 ---@param file_name_regex string
 ---@param with_line_number boolean
@@ -203,12 +223,14 @@ end
 ---@param lines TextLines
 ---@param line integer
 ---@return JavaStackTraceElement? element
+---@return integer? first_line
+---@return integer? last_line
 local function parse_java_stack_trace_line_in_lines(lines, line)
 	local line_text = lines.get_line_text(line)
 	local element = M.parse_java_stack_trace_line(line_text)
 
 	if element then
-		return element
+		return element, line, line
 	end
 
 	-- Maybe the lines have been  wrapped with a hard <CR> between them
@@ -222,7 +244,7 @@ local function parse_java_stack_trace_line_in_lines(lines, line)
 			element = M.parse_java_stack_trace_line(joined)
 
 			if element then
-				return element
+				return element, line - 1, line
 			end
 		end
 	end
@@ -237,7 +259,7 @@ local function parse_java_stack_trace_line_in_lines(lines, line)
 			element = M.parse_java_stack_trace_line(joined)
 
 			if element then
-				return element
+				return element, line, line + 1
 			end
 		end
 	end
@@ -252,10 +274,10 @@ local function find_first_java_stack_trace_line(lines, start_from_line)
 	local line = start_from_line
 
 	while line <= lines.line_count do
-		local element = parse_java_stack_trace_line_in_lines(lines, line)
+		local element, first_line = parse_java_stack_trace_line_in_lines(lines, line)
 
 		if element then
-			return line
+			return first_line
 		end
 
 		line = line + 1
@@ -264,64 +286,119 @@ local function find_first_java_stack_trace_line(lines, start_from_line)
 	return nil
 end
 
+---@param lines TextLines The lines to search for first line in
+---@param current_line integer The line number (1 based) to start from
+---@return integer? The first line number (1 based) or nil if no line found
+local function find_beginning_of_java_stack_trace_line(lines, current_line)
+	local line = current_line
+	local beginning_line = nil
+
+	while line >= 1 do
+		local element, first_line = parse_java_stack_trace_line_in_lines(lines, line)
+
+		if element then
+			beginning_line = first_line
+			line = first_line - 1
+		else
+			local line_text = lines.get_line_text(line)
+
+			if not is_more_line(line_text) and not is_caused_by_line(line_text) then
+				return beginning_line
+			end
+
+			line = line - 1
+		end
+	end
+
+	return beginning_line
+end
+
+---@param stack_trace JavaStackTraceElement[]
+---@return JavaStackTraceElement[] reduced
+local function reduce_stack_trace(stack_trace)
+	local reduced = {}
+	local prev_element = nil
+
+	for i, element in ipairs(stack_trace) do
+		if not is_same_stack_track_element(element, prev_element) then
+			table.insert(reduced, element)
+			prev_element = element
+		end
+	end
+
+	return reduced
+end
+
 --- Parses all contiguous stack trace lines around the cursor
 --- @param lines TextLines
 --- @param cursor_line integer The line around which we should try to parse a stack trace from (looks up and down)
---- @return JavaStackTraceElement[]|nil
---- @return integer index The 1 based index where the current line was found in the stack trace
+--- @return JavaStackTraceElement[]?
+--- @return integer? index The 1 based index where the current line was found in the stack trace
 local function parse_java_stack_around_line(lines, cursor_line)
+	local beginning_line = find_beginning_of_java_stack_trace_line(lines, cursor_line)
+
+	if not beginning_line then
+		return nil, nil
+	end
+
 	local total_lines = lines.line_count
-	local current_element = parse_java_stack_trace_line_in_lines(lines, cursor_line)
-
-	if not current_element then
-		return nil, 0
-	end
-
 	local stack_elements = {}
-
+	local insert_index = 1
 	local prev_element = nil
+	local current_line = beginning_line
+	---
+	---@type JavaStackTraceElement
+	local cursor_line_element = nil
 
-	-- Look Upwards
-	local up = cursor_line - 1
-	while up >= 1 do
-		local element = parse_java_stack_trace_line_in_lines(lines, up)
-
-		if element then
-			if not is_same_stack_track_element(element, prev_element) then
-				table.insert(stack_elements, 1, element)
-				prev_element = element
-			end
-
-			up = up - 1
-		else
-			break
-		end
-	end
-
-	local current_line_index = #stack_elements + 1
-
-	table.insert(stack_elements, current_element)
-
-	prev_element = current_element
-
-	-- Look Downwards
-	local down = cursor_line + 1
-	while down <= total_lines do
-		local element = parse_java_stack_trace_line_in_lines(lines, down)
+	while current_line <= total_lines do
+		local element, first_line, last_line = parse_java_stack_trace_line_in_lines(lines, current_line)
 
 		if element then
 			if not is_same_stack_track_element(element, prev_element) then
-				table.insert(stack_elements, element)
+				table.insert(stack_elements, insert_index, element)
 				prev_element = element
 			end
 
-			down = down + 1
+			insert_index = insert_index + 1
+
+			if cursor_line >= first_line and cursor_line <= last_line then
+				cursor_line_element = element
+			end
+
+			current_line = last_line + 1
 		else
-			break
+			local line_text = lines.get_line_text(current_line)
+
+			if is_caused_by_line(line_text) then
+				insert_index = 1
+				prev_element = nil
+				current_line = current_line + 1
+			elseif is_more_line(line_text) then
+				current_line = current_line + 1
+			else
+				current_line = total_lines + 1
+			end
 		end
 	end
 
-	return stack_elements, current_line_index
+	assert(#stack_elements >= 1)
+
+	stack_elements = reduce_stack_trace(stack_elements)
+
+	assert(#stack_elements >= 1)
+
+	local cursor_line_index = nil
+
+	if cursor_line_element then
+		for index, element in ipairs(stack_elements) do
+			if element == cursor_line_element then
+				cursor_line_index = index
+				break
+			end
+		end
+	end
+
+	return stack_elements, cursor_line_index
 end
 
 ---@return boolean
@@ -420,6 +497,8 @@ local function find_java_source_file_for_class(full_class_name, expected_file_na
 end
 
 ---@param element JavaStackTraceElement
+--- @return string? path The found path or nil
+--- @return string? error The error message or nil
 local function find_java_source_file_for_element(element)
 	local class_name = get_outer_class_name(element.class_name)
 
@@ -462,10 +541,9 @@ local function parse_java_stack_trace_from_text(text)
 		return nil
 	end
 
-	local stack_trace, index = parse_java_stack_around_line(lines, first_line)
+	local stack_trace = parse_java_stack_around_line(lines, first_line)
 
 	assert(stack_trace)
-	assert(index == 1)
 
 	return stack_trace
 end
@@ -480,6 +558,8 @@ local function parse_java_stack_track_from_register(name)
 end
 
 ---@param win integer The window id
+--- @return JavaStackTraceElement[]?
+--- @return integer? index The 1 based index where the current line was found in the stack trace
 local function parse_java_stack_around_cursor(win)
 	local bufnr = vim.api.nvim_win_get_buf(win)
 	local cursor_line = vim.api.nvim_win_get_cursor(win)[1]
@@ -519,7 +599,12 @@ local function setup_stack_trace(register_name_or_text_to_parse)
 
 	if stack_trace then
 		current_loaded_stack_trace = stack_trace
-		current_loaded_stack_trace_index = current_index
+
+		if current_index then
+			current_loaded_stack_trace_index = current_index
+		else
+			current_loaded_stack_trace_index = 1
+		end
 	end
 end
 
@@ -725,6 +810,11 @@ end
 ---@param stack_trace JavaStackTraceElement[]
 ---@param initially_selected integer
 local function pick_java_stack_trace_line(stack_trace, initially_selected)
+	if #stack_trace == 1 then
+		go_to_java_stack_trace_element(stack_trace[1])
+		return
+	end
+
 	local items = java_stack_trace_to_snacks_items(stack_trace)
 
 	if not items then
