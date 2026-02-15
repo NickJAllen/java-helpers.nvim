@@ -264,7 +264,7 @@ local function parse_java_stack_trace_line_in_lines(lines, line)
 		end
 	end
 
-	return nil
+	return nil, nil, nil
 end
 
 ---@param lines TextLines The lines to search for first line in
@@ -356,10 +356,9 @@ local function parse_java_stack_around_line(lines, cursor_line)
 		if element then
 			if not is_same_stack_track_element(element, prev_element) then
 				table.insert(stack_elements, insert_index, element)
+				insert_index = insert_index + 1
 				prev_element = element
 			end
-
-			insert_index = insert_index + 1
 
 			if cursor_line >= first_line and cursor_line <= last_line then
 				cursor_line_element = element
@@ -391,11 +390,13 @@ local function parse_java_stack_around_line(lines, cursor_line)
 
 	if cursor_line_element then
 		for index, element in ipairs(stack_elements) do
-			if element == cursor_line_element then
+			if is_same_stack_track_element(element, cursor_line_element) then
 				cursor_line_index = index
 				break
 			end
 		end
+
+		assert(cursor_line_index)
 	end
 
 	return stack_elements, cursor_line_index
