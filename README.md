@@ -84,8 +84,11 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
     },
 
     dependencies = {
-      { 'nvim-lua/plenary.nvim' },
-    },
+      'nvim-lua/plenary.nvim',
+
+      -- This is only needed if you want to use the JavaHelpersPickStackTraceLine command (but highly recommended)
+      'folke/snacks.nvim',
+    }
 },
 
 ```
