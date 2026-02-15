@@ -4,10 +4,17 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
 
 ## **✨ Features**
 
-* Ability to jump to any line in a Java stack trace under the cursor (for example printed in a debug output console)
-* Use Snacks picker to select a line from stack trace under the cursor (or the last used stack trace if none under the cursor)
-* Commands to quickly navigate up and down or to the top or bottom of the Java stack trace
-* Send Java stack trace to quickfix list
+### Java Stack Trace Navigation
+
+* Ability to jump to any line in a stack trace
+* Use Snacks picker to select a line from stack trace 
+* Commands to quickly navigate up and down or to the top or bottom of the stack trace
+* Send stack trace to quickfix list
+* All commands can get stack trace from current buffer (default) or a vim register (e.g '+' for system clipboard) if provided as extra argument to command
+* Supports jdtls or java_language_server LSP in order to look up file path from class name
+
+### New File Creation
+
 * **Automatic Package Detection:** Intelligent determination of the correct package declaration based on standard Maven/Gradle source directories (src/main/java, src/test/java, etc.) and the current file path.  
 * **Context-Aware Creation:** Works from a regular buffer, or while selecting a directory in file explorers like **Snacks Explorer**, **Neo-tree** or **Oil.nvim**.  
 * **Template-Based:** Ships with built-in templates for common Java types (Class, Interface, Enum, Record, Annotation, Abstract Class).  
@@ -53,7 +60,6 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
         ---If true then newly created Java files will be formatted
         ---@type boolean
         should_format = true,
-
     },
 
     -- Example keys - change these as you like

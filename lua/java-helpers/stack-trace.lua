@@ -122,9 +122,6 @@ function M.parse_java_stack_trace_line(line)
 		end
 	end
 
-	-- String off nested class part from class name
-	class_name = get_outer_class_name(class_name)
-
 	if not line_number then
 		line_number = 1
 	end
@@ -358,7 +355,7 @@ local function get_cached_file_path(full_class_name, expected_file_name)
 end
 
 --- @param full_class_name string Full class name that we want to resolve
---- @param expected_file_name string The expected file name we are looking for which can be used when multiple results are found to find the most likely
+--- @param expected_file_name string? The expected file name we are looking for which can be used when multiple results are found to find the most likely
 --- @param file_path string
 local function remember_cached_file_path(full_class_name, expected_file_name, file_path)
 	local key = get_cache_key(full_class_name, expected_file_name)
@@ -423,10 +420,17 @@ local function find_java_source_file_for_class(full_class_name, expected_file_na
 end
 
 ---@param element JavaStackTraceElement
+local function find_java_source_file_for_element(element)
+	local class_name = get_outer_class_name(element.class_name)
+
+	return find_java_source_file_for_class(class_name, element.file_name)
+end
+
+---@param element JavaStackTraceElement
 local function go_to_java_stack_trace_element(element)
 	log.trace("Go to " .. element.class_name .. " " .. element.file_name .. " " .. element.line_number)
 
-	local file_path, error = find_java_source_file_for_class(element.class_name, element.file_name)
+	local file_path, error = find_java_source_file_for_element(element)
 
 	if file_path then
 		utils.go_to_file_and_line_number(file_path, element.line_number)
@@ -441,7 +445,11 @@ local function go_to_java_stack_trace_element_in_bg(element)
 		go_to_java_stack_trace_element(element)
 	end)
 
-	coroutine.resume(co)
+	local ok, error = coroutine.resume(co)
+
+	if not ok then
+		print(debug.traceback(co))
+	end
 end
 
 ---@param text string The text to be parsed and used as a stack trace
@@ -592,7 +600,7 @@ end
 ---@param element JavaStackTraceElement
 ---@return table? item
 local function java_stack_trace_element_to_quickfix_item(element)
-	local path, _error = find_java_source_file_for_class(element.class_name, element.file_name)
+	local path, _error = find_java_source_file_for_element(element)
 
 	if not path then
 		return nil
@@ -650,7 +658,11 @@ local function send_java_stack_trace_to_quickfix_list_in_bg(stack_trace)
 		send_java_stack_trace_to_quickfix_list(stack_trace)
 	end)
 
-	coroutine.resume(co)
+	local ok, error = coroutine.resume(co)
+
+	if not ok then
+		print(debug.traceback(co))
+	end
 end
 
 ---@param register_name_or_text_to_parse string? If a single character then defines the register name, if multiple characters then will parse trhe supplied text, if nil or empty then uses the text around the current cursor position
@@ -666,8 +678,9 @@ function M.send_java_stack_trace_to_quickfix_list(register_name_or_text_to_parse
 end
 
 ---@param element JavaStackTraceElement
-local function java_stack_trace_element_to_snacks_item(element)
-	local path, error = find_java_source_file_for_class(element.class_name, element.file_name)
+---@param index integer
+local function java_stack_trace_element_to_snacks_item(element, index)
+	local path, error = find_java_source_file_for_element(element)
 
 	if not path then
 		return nil
@@ -676,65 +689,100 @@ local function java_stack_trace_element_to_snacks_item(element)
 	return {
 		file = path,
 		pos = { tonumber(element.line_number), 0 },
+		text = element.class_name .. "." .. element.method_name,
 		java_stack_trace_element = element,
+		java_stack_trace_index = index,
 	}
 end
 
 ---@param stack_trace JavaStackTraceElement[]
 ---@return table? items
----@return table? item_to_index_map
 local function java_stack_trace_to_snacks_items(stack_trace)
 	local items = {}
 	local previously_converted = {}
-	local item_to_index_map = {}
 
 	for i, element in ipairs(stack_trace) do
 		if not contains_stack_trace_element(previously_converted, element) then
-			local item = java_stack_trace_element_to_snacks_item(element)
+			local item = java_stack_trace_element_to_snacks_item(element, i)
 
 			previously_converted[#previously_converted + 1] = element
 
 			if item then
 				items[#items + 1] = item
-				item_to_index_map[item] = i
 			end
 		end
 	end
 
 	if #items > 0 then
-		return items, item_to_index_map
+		return items
 	end
 
 	log.error("Could not convert stack trace to snacks picker items")
 
-	return nil, nil
+	return nil
 end
 
 ---@param stack_trace JavaStackTraceElement[]
 ---@param initially_selected integer
 local function pick_java_stack_trace_line(stack_trace, initially_selected)
-	local items, items_to_index_map = java_stack_trace_to_snacks_items(stack_trace)
+	local items = java_stack_trace_to_snacks_items(stack_trace)
 
 	if not items then
 		return
 	end
 
-	assert(items_to_index_map)
+	local max_class_and_method_length = 1
+
+	for _, item in ipairs(items) do
+		---@type JavaStackTraceElement
+		local element = item.java_stack_trace_element
+		local class_name = element.class_name
+		local method_name = element.method_name
+		local width = #class_name + 1 + #method_name
+
+		if width > max_class_and_method_length then
+			max_class_and_method_length = width
+		end
+	end
 
 	local picker = require("snacks.picker")
 
 	picker.pick({
 		source = "stack",
 		items = items,
-		layout = { preset = "vertical" },
-		format = "file",
+		format = function(item, _)
+			local cols = {}
+			local element = item.java_stack_trace_element
+
+			assert(element)
+
+			local class_name = element.class_name
+			local method_name = element.method_name
+			local width = #class_name + 1 + #method_name
+
+			table.insert(cols, { class_name, "SnacksLabel" })
+			table.insert(cols, { ".", "SnacksPickerSpecial" })
+			table.insert(cols, { method_name, "SnacksPickerSpecial" })
+			table.insert(cols, { string.rep(" ", max_class_and_method_length - width + 2), "SnacksLabel" })
+
+			local file_name = element.file_name
+
+			if file_name then
+				table.insert(cols, { file_name, "SnacksPickerFile" })
+				table.insert(cols, { ":", "SnacksLabel" })
+			end
+
+			table.insert(cols, { tostring(element.line_number), "SnacksPickerRow" })
+
+			return cols
+		end,
 		confirm = function(p, item)
 			p:close()
 			if item then
 				utils.go_to_file_and_line_number(item.file, item.pos[1])
 
 				if stack_trace == current_loaded_stack_trace then
-					local index = items_to_index_map[item]
+					local index = item.java_stack_trace_index
 
 					if index then
 						current_loaded_stack_trace_index = index
@@ -752,7 +800,11 @@ local function pick_java_stack_trace_line_in_bg(stack_trace, initially_selected)
 		pick_java_stack_trace_line(stack_trace, initially_selected)
 	end)
 
-	coroutine.resume(co)
+	local ok, error = coroutine.resume(co)
+
+	if not ok then
+		print(debug.traceback(co))
+	end
 end
 
 ---@param register_name_or_text_to_parse string? If a single character then defines the register name, if multiple characters then will parse trhe supplied text, if nil or empty then uses the text around the current cursor position

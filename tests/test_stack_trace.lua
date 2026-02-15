@@ -69,7 +69,7 @@ local test_stack_lines = {
 	{
 		line = "    at com.example.SomeClass$NestedClass.someMethod(Unknown Source)",
 		expected = {
-			class_name = "com.example.SomeClass",
+			class_name = "com.example.SomeClass$NestedClass",
 			method_name = "someMethod",
 			file_name = "Unknown Source",
 			line_number = 1,
@@ -78,7 +78,7 @@ local test_stack_lines = {
 	{
 		line = "    at com.example.SomeClass$NestedClass.someMethod(SomeClass.java)",
 		expected = {
-			class_name = "com.example.SomeClass",
+			class_name = "com.example.SomeClass$NestedClass",
 			method_name = "someMethod",
 			file_name = "SomeClass.java",
 			line_number = 1,
@@ -87,7 +87,7 @@ local test_stack_lines = {
 	{
 		line = "    at java.base/java.util.ArrayList$Itr.checkForComodification(Unknown Source)",
 		expected = {
-			class_name = "java.util.ArrayList",
+			class_name = "java.util.ArrayList$Itr",
 			method_name = "checkForComodification",
 			file_name = "Unknown Source",
 			line_number = 1,
@@ -96,7 +96,7 @@ local test_stack_lines = {
 	{
 		line = "    at java.base/java.util.Collections$UnmodifiableCollection$1.next(Native Method)",
 		expected = {
-			class_name = "java.util.Collections",
+			class_name = "java.util.Collections$UnmodifiableCollection$1",
 			method_name = "next",
 			file_name = "Native Method",
 			line_number = 1,
