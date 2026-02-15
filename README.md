@@ -88,7 +88,7 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
 
       -- This is only needed if you want to use the JavaHelpersPickStackTraceLine command (but highly recommended)
       'folke/snacks.nvim',
-    }
+    },
 },
 
 ```
