@@ -33,6 +33,7 @@ local test_stack_lines = {
 		line = "           at com.example.MyClass.doSomething(MyClass.java:100)",
 		expected = {
 			class_name = "com.example.MyClass",
+			method_name = "doSomething",
 			file_name = "MyClass.java",
 			line_number = 100,
 		},
@@ -41,6 +42,8 @@ local test_stack_lines = {
 		line = "           at com.example.MyClass.<init>(MyClass.java:1234)",
 		expected = {
 			class_name = "com.example.MyClass",
+			method_name = "<init>",
+			file_name = "MyClass.java",
 			file_name = "MyClass.java",
 			line_number = 1234,
 		},
@@ -49,6 +52,7 @@ local test_stack_lines = {
 		line = "some text to ignore           at com.example.MyClass.doSomething(MyClass.java:100) more text to ignore\n",
 		expected = {
 			class_name = "com.example.MyClass",
+			method_name = "doSomething",
 			file_name = "MyClass.java",
 			line_number = 100,
 		},
@@ -57,6 +61,7 @@ local test_stack_lines = {
 		line = "at java.base/java.lang.Thread.dumpStack(Thread.java:1383)",
 		expected = {
 			class_name = "java.lang.Thread",
+			method_name = "dumpStack",
 			file_name = "Thread.java",
 			line_number = 1383,
 		},
@@ -64,7 +69,8 @@ local test_stack_lines = {
 	{
 		line = "    at com.example.SomeClass$NestedClass.someMethod(Unknown Source)",
 		expected = {
-			class_name = "com.example.SomeClass",
+			class_name = "com.example.SomeClass$NestedClass",
+			method_name = "someMethod",
 			file_name = "Unknown Source",
 			line_number = 1,
 		},
@@ -72,7 +78,8 @@ local test_stack_lines = {
 	{
 		line = "    at com.example.SomeClass$NestedClass.someMethod(SomeClass.java)",
 		expected = {
-			class_name = "com.example.SomeClass",
+			class_name = "com.example.SomeClass$NestedClass",
+			method_name = "someMethod",
 			file_name = "SomeClass.java",
 			line_number = 1,
 		},
@@ -80,7 +87,8 @@ local test_stack_lines = {
 	{
 		line = "    at java.base/java.util.ArrayList$Itr.checkForComodification(Unknown Source)",
 		expected = {
-			class_name = "java.util.ArrayList",
+			class_name = "java.util.ArrayList$Itr",
+			method_name = "checkForComodification",
 			file_name = "Unknown Source",
 			line_number = 1,
 		},
@@ -88,7 +96,8 @@ local test_stack_lines = {
 	{
 		line = "    at java.base/java.util.Collections$UnmodifiableCollection$1.next(Native Method)",
 		expected = {
-			class_name = "java.util.Collections",
+			class_name = "java.util.Collections$UnmodifiableCollection$1",
+			method_name = "next",
 			file_name = "Native Method",
 			line_number = 1,
 		},
@@ -97,6 +106,7 @@ local test_stack_lines = {
 		line = "        at com.example.MyClass.lambda$0(MyClass.java:596)",
 		expected = {
 			class_name = "com.example.MyClass",
+			method_name = "lambda$0",
 			file_name = "MyClass.java",
 			line_number = 596,
 		},

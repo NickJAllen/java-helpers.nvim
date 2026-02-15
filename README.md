@@ -4,10 +4,18 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
 
 ## **✨ Features**
 
-* Ability to jump to any line in a Java stack trace under the cursor (for example printed in a debug output console)
-* Use Snacks picker to select a line from stack trace under the cursor (or the last used stack trace if none under the cursor)
-* Commands to quickly navigate up and down or to the top or bottom of the Java stack trace
-* Send Java stack trace to quickfix list
+### Java Stack Trace Navigation
+
+* Ability to jump to any line in a stack trace
+* Supports nested Java exceptions
+* Use Snacks picker to select a line from stack trace 
+* All commands can get stack trace from current buffer (default) or a vim register (e.g '+' for system clipboard) if provided as extra argument to command
+* Commands to quickly navigate up and down or to the top or bottom of the stack trace
+* Send stack trace to quickfix list
+* Supports jdtls or java_language_server LSP in order to look up file path from class name
+
+### New File Creation
+
 * **Automatic Package Detection:** Intelligent determination of the correct package declaration based on standard Maven/Gradle source directories (src/main/java, src/test/java, etc.) and the current file path.  
 * **Context-Aware Creation:** Works from a regular buffer, or while selecting a directory in file explorers like **Snacks Explorer**, **Neo-tree** or **Oil.nvim**.  
 * **Template-Based:** Ships with built-in templates for common Java types (Class, Interface, Enum, Record, Annotation, Abstract Class).  
@@ -53,7 +61,6 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
         ---If true then newly created Java files will be formatted
         ---@type boolean
         should_format = true,
-
     },
 
     -- Example keys - change these as you like
@@ -64,13 +71,16 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
       { '<leader>ja', ':JavaHelpersNewFile Abstract Class<cr>', desc = 'New Abstract Java Class' },
       { '<leader>jr', ':JavaHelpersNewFile Record<cr>', desc = 'New Java Record' },
       { '<leader>je', ':JavaHelpersNewFile Enum<cr>', desc = 'New Java Enum' },
-      { '<leader>sj', ':JavaHelpersPickStackTraceLine<cr>', desc = 'Pick Java stack trace line' },
+      { '<leader>jp', ':JavaHelpersPickStackTraceLine<cr>', desc = 'Pick Java stack trace line' },
+      { '<leader>jP', ':JavaHelpersPickStackTraceLine +<cr>', desc = 'Pick Java stack trace line from clipboard' },
       { '<leader>js', ':JavaHelpersGoToStackTraceLine<cr>', desc = 'Go to Java stack trace line' },
+      { '<leader>jS', ':JavaHelpersGoToStackTraceLine +<cr>', desc = 'Go to Java stack trace line on clipboard' },
       { '[j', ':JavaHelpersGoUpStackTrace<cr>', desc = 'Go up Java stack trace' },
       { ']j', ':JavaHelpersGoDownStackTrace<cr>', desc = 'Go down Java stack trace' },
-      { '<leader>[j', ':JavaHelpersGoToTopOfStackTrace<cr>', desc = 'Go to top of Java stack trace' },
-      { '<leader>]j', ':JavaHelpersGoToBottomOfStackTrace<cr>', desc = 'Go to bottom of Java stack trace' },
+      { '<leader>jt', ':JavaHelpersGoToTopOfStackTrace<cr>', desc = 'Go to top of Java stack trace' },
+      { '<leader>jb', ':JavaHelpersGoToBottomOfStackTrace<cr>', desc = 'Go to bottom of Java stack trace' },
       { '<leader>jq', ':JavaHelpersSendStackTraceToQuickfix<cr>', desc = 'Send Java stack trace to quickfix list' },
+      { '<leader>jQ', ':JavaHelpersSendStackTraceToQuickfix +<cr>', desc = 'Send Java stack trace on clipboard to quickfix list' },
     },
 
     dependencies = {
