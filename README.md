@@ -14,6 +14,8 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
 * Send stack trace to quickfix list
 * Supports jdtls or java_language_server LSP in order to look up file path from class name
 
+![Java Stack Picker](./res/java-stack-picker.gif)
+
 ### New File Creation
 
 * **Automatic Package Detection:** Intelligent determination of the correct package declaration based on standard Maven/Gradle source directories (src/main/java, src/test/java, etc.) and the current file path.  
