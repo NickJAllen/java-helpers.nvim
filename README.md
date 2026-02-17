@@ -19,7 +19,7 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
 ### New File Creation
 
 * **Automatic Package Detection:** Intelligent determination of the correct package declaration based on standard Maven/Gradle source directories (src/main/java, src/test/java, etc.) and the current file path.  
-* **Context-Aware Creation:** Works from a regular buffer, or while selecting a directory in file explorers like **Snacks Explorer**, **Neo-tree** or **Oil.nvim**.  
+* **Context-Aware Creation:** Works from a regular buffer, or while selecting a directory in file explorers like **MiniFiles**, **Oil.nvim**, **Snacks Explorer**, or **Neo-tree**.  
 * **Template-Based:** Ships with built-in templates for common Java types (Class, Interface, Enum, Record, Annotation, Abstract Class).  
 * **Customizable:** Easily override built-in templates or define your own custom templates.  
 * **LSP Formatting:** Automatically formats the newly created file using the attached Language Server (via vim.lsp.buf.format()) if configured.
