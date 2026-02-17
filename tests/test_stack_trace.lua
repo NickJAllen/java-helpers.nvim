@@ -25,7 +25,7 @@ local T = new_set()
 
 ---@class TestStackLine
 ---@field line string
----@field expected JavaStackTraceElement|nil
+---@field expected JavaHelpers.StackTraceElement|nil
 
 ---@type TestStackLine[]
 local test_stack_lines = {
