@@ -51,11 +51,16 @@ local function select_editable_window()
 end
 
 ---@param file_path string
----@param line_number integer
-function M.go_to_file_and_line_number(file_path, line_number)
+---@param line_number integer 1 based line number
+---@param col integer? 0 based column
+function M.go_to_file_and_line_number(file_path, line_number, col)
 	if not select_editable_window() then
 		log.error("Could not find an editable window to use to go to line number")
 		return
+	end
+
+	if not col then
+		col = 0
 	end
 
 	local bufnr = vim.fn.bufadd(file_path)
@@ -63,7 +68,7 @@ function M.go_to_file_and_line_number(file_path, line_number)
 
 	vim.api.nvim_set_current_buf(bufnr)
 
-	vim.api.nvim_win_set_cursor(0, { line_number, 0 })
+	vim.api.nvim_win_set_cursor(0, { line_number, col })
 end
 
 --- @param str string
@@ -165,6 +170,28 @@ end
 
 ---@param buf integer The buffer number to check if it's an oil buffer or not
 ---@return string|nil dir_path The path to the current directory in the oil buffer or nil if the buffer is not an oil buffer.
+local function get_mini_files_current_dir(buf)
+	local file_type = vim.bo[buf].filetype
+
+	if file_type ~= "minifiles" then
+		return nil
+	end
+
+	local buffer_name = vim.api.nvim_buf_get_name(buf)
+	local regex = "minifiles://%d+/(.+)"
+
+	local path = buffer_name:match(regex)
+
+	if not path or #path == 0 then
+		log.error("Could not parse minifiles buffer name: " .. buffer_name)
+		return nil
+	end
+
+	return path
+end
+
+---@param buf integer The buffer number to check if it's an oil buffer or not
+---@return string|nil dir_path The path to the current directory in the oil buffer or nil if the buffer is not an oil buffer.
 local function get_oil_current_dir(buf)
 	local file_type = vim.bo[buf].filetype
 
@@ -250,6 +277,12 @@ function M.get_current_directory()
 		end
 
 		dir = get_neo_tree_current_dir(buf)
+
+		if dir then
+			return dir
+		end
+
+		dir = get_mini_files_current_dir(buf)
 
 		if dir then
 			return dir

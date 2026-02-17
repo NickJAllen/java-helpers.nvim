@@ -256,8 +256,7 @@ local function create_java_file(template, name, source_dir, package_name)
 	file:write(content)
 	file:close()
 
-	vim.cmd("edit " .. file_path)
-	vim.api.nvim_win_set_cursor(0, { cursor_line, cursor_col })
+	utils.go_to_file_and_line_number(file_path, cursor_line, cursor_col)
 
 	if config.should_format then
 		vim.lsp.buf.format()
