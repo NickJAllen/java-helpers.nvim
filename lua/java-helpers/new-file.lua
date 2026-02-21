@@ -3,12 +3,12 @@ local M = {}
 local utils = require("java-helpers.utils")
 local log = utils.log
 
----@class TemplateDefinition
+---@class JavaHelpers.TemplateDefinition
 ---@field name string The name of the template
 ---@field template string The source of the template
 
 ---Bult-in templates - these can't be deleted but they can be overridden
----@type TemplateDefinition[]
+---@type JavaHelpers.TemplateDefinition[]
 local builtin_templates = {
 	{
 		name = "Class",
@@ -48,27 +48,31 @@ local builtin_templates = {
 	},
 }
 
+---@class JavaHelpers.NewFileConfig
+---@field templates JavaHelpers.TemplateDefinition[]
+---@field java_source_dirs string[]
+---@field should_format boolean
+---
 -- Default configuration
+---@type JavaHelpers.NewFileConfig
 local default_config = {
 	---Each template has a name and some template source code.
 	---${package_decl} and ${name} will be replaced with the package declaration and name for the Java type being created.
 	---If ${pos} is provided then the cursor will be positioned there ready to type.
-	---@type TemplateDefinition[]
 	templates = {},
 
 	---Defines patters to recognize Java source directories in order to determine the package name.
-	---@type string[]
 	java_source_dirs = { "src/main/java", "src/test/java", "src" },
 
 	---If true then newly created Java files will be formatted
-	---@type boolean
 	should_format = true,
 }
 
+---@type JavaHelpers.NewFileConfig
 local config = {}
 
 ---All defined templates with name as the key and the template source as the value
----@type table<string, TemplateDefinition>
+---@type table<string, JavaHelpers.TemplateDefinition>
 local all_templates = {}
 
 ---All template names defined in order
@@ -192,7 +196,7 @@ end
 
 ---Given the name of a template, looks up the template source or nil if not found
 ---@param template_name string
----@return TemplateDefinition|nil template_definition The template source or nil if not found
+---@return JavaHelpers.TemplateDefinition|nil template_definition The template source or nil if not found
 local function get_template(template_name)
 	local name_lower = string.lower(template_name)
 
@@ -264,7 +268,7 @@ local function create_java_file(template, name, source_dir, package_name)
 end
 
 ---Adds a new template with the supplied definition
----@param template_definition TemplateDefinition
+---@param template_definition JavaHelpers.TemplateDefinition
 local function add_template(template_definition)
 	local name_lower = string.lower(template_definition.name)
 	local is_new_template = all_templates[name_lower] == nil
@@ -277,7 +281,7 @@ local function add_template(template_definition)
 end
 
 ---Adds a template from a template definition (a lua table with name and template keys)
----@param template_definition TemplateDefinition
+---@param template_definition JavaHelpers.TemplateDefinition
 function M.add_template(template_definition)
 	local name = template_definition.name
 
@@ -297,7 +301,7 @@ function M.add_template(template_definition)
 end
 
 ---Adds some new templates.
----@param templates TemplateDefinition[] Template definitions to add
+---@param templates JavaHelpers.TemplateDefinition[] Template definitions to add
 function M.add_templates(templates)
 	for _, template_definition in ipairs(templates) do
 		M.add_template(template_definition)
@@ -414,7 +418,7 @@ function M.create_java_file(template_name, type_name)
 end
 
 ---Should be called to initialize this plug-in
----@param opts table|nil User-provided configuration to override defaults.
+---@param opts JavaHelpers.NewFileConfig? User-provided configuration to override defaults.
 function M.setup(opts)
 	config = vim.tbl_deep_extend("force", default_config, opts or {})
 

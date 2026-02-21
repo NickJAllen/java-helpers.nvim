@@ -1,7 +1,30 @@
 local M = {}
 
-local log = require("plenary.log").new({ plugin = "java-helpers", level = "info" })
-M.log = log
+local log = require("plenary.log").new({
+	plugin = "java-helpers",
+	level = "trace",
+	use_console = false,
+})
+
+-- Notifies the user with the supplied message
+---@param message string
+local function info(message)
+	log.info(message)
+	vim.notify(message)
+end
+
+-- Notifies the user with the supplied error message
+---@param message string
+local function error(message)
+	log.error(message)
+	vim.notify(message)
+end
+
+M.log = {
+	info = info,
+	error = error,
+	trace = log.trace,
+}
 
 local function can_window_switch_buffers(win)
 	return not vim.wo[win].winfixbuf
@@ -15,7 +38,7 @@ local function is_window_editing_a_normal_buffer(win)
 end
 
 ---Tries to find an existing window that should be used for editing a file
----@return integer win
+---@return integer? win
 local function find_editable_window()
 	local current_win = vim.api.nvim_get_current_win()
 
@@ -261,8 +284,7 @@ local function get_neo_tree_current_dir(buf)
 end
 
 -- Gets the current directory in an intelligent way.
--- If the user is focused in neo-tree then it retuns the path to the current directory that is selected there.
--- If the current buffer is an oil buffer then returns the directory of oil.
+-- If the user is focused in file explorer then it retuns the path to the current directory that is selected there.
 -- Otherwise, if the user is editing a file then it uses the current diretory of that file.
 -- If none of those work then it returns vim.fn.getcwd()
 --- @return string
@@ -307,20 +329,203 @@ function M.get_current_directory()
 end
 
 -- Performs an async request to an LSP server. Must be called from a coroutine.
----@param client The LSP client to use
+---@param client vim.lsp.Client The LSP client to use
 ---@param request string The request to invoke
 ---@param params table Parameters to the request
----@result
-function M.lsp_request_async(client, request, params)
+---@return string? err
+---@return any result
+function M.await_lsp_request(client, request, params)
 	local co = coroutine.running()
-	-- Ensure we are actually inside a coroutine
+
+	log.trace(
+		"Sending request to LSP server " .. client.name .. ": " .. request .. " with params " .. vim.inspect(params)
+	)
+
 	assert(co, "request_async must be called from within a coroutine")
 
-	client.request(request, params, function(err, result, _)
-		coroutine.resume(co, err, result)
+	local request_id = client.request(request, params, function(err, result)
+		vim.schedule(function()
+			coroutine.resume(co, err, result)
+		end)
+	end)
+
+	if not request_id then
+		local message = "Could not send request to LSP server"
+		log.error(message)
+		return message, nil
+	end
+
+	local err, result = coroutine.yield()
+
+	if err then
+		return vim.inspect(err), nil
+	end
+
+	return nil, result
+end
+
+---@param input_text string
+---@param command string[]
+---@return vim.SystemCompleted
+function M.await_filter_text_with_command(input_text, command)
+	local co = coroutine.running()
+
+	assert(co, "await_filter_text_with_command must be called within a coroutine")
+
+	vim.system(command, {
+		stdin = input_text,
+		text = true,
+	}, function(r)
+		vim.schedule(function()
+			coroutine.resume(co, r)
+		end)
 	end)
 
 	return coroutine.yield()
+end
+
+---@param prompt string
+---@param directory string?
+---@return string? selected_file
+function M.await_pick_file(prompt, directory)
+	local co = coroutine.running()
+
+	assert(co, "await_pick_file must be called within a coroutine")
+
+	if not directory then
+		directory = M.get_current_directory()
+	end
+
+	log.trace("Asking user to pick a file. Prompt = " .. prompt .. " dir = " .. directory)
+
+	require("snacks.picker").files({
+		dirs = { directory },
+		prompt = prompt,
+		confirm = function(picker, item)
+			picker:close()
+
+			vim.schedule(function()
+				if item then
+					log.trace("User chose file " .. item.file)
+					coroutine.resume(co, item.file)
+				else
+					log.trace("User canceled file selection")
+					coroutine.resume(co, nil)
+				end
+			end)
+		end,
+	})
+
+	return coroutine.yield()
+end
+
+---@class JavaHelpers.TextLines
+---@field line_count integer The number of lines in the source
+---@field get_line_text function(line : integer) : string Retrieves a line from the source
+
+---@param bufnr integer The buffer
+---@param line integer The line number
+local function get_buffer_line(bufnr, line)
+	return vim.api.nvim_buf_get_lines(bufnr, line - 1, line, false)[1]
+end
+
+local function get_buffer_line_count(bufnr)
+	return vim.api.nvim_buf_line_count(bufnr)
+end
+
+---@param bufnr integer The buffer to read lines from
+---@return JavaHelpers.TextLines
+function M.create_text_lines_from_buffer(bufnr)
+	return {
+		line_count = get_buffer_line_count(bufnr),
+		get_line_text = function(line)
+			return get_buffer_line(bufnr, line)
+		end,
+	}
+end
+
+---@param lines_array string[]
+---@return JavaHelpers.TextLines
+function M.create_text_lines_from_array(lines_array)
+	return {
+		line_count = #lines_array,
+		get_line_text = function(line)
+			return lines_array[line]
+		end,
+	}
+end
+
+---@param text string
+---@return string[] lines
+function M.split_lines(text)
+	return vim.split(text, "\n", { plain = true })
+end
+
+---@param text string
+function M.create_text_lines_from_string(text)
+	local lines = M.split_lines(text)
+
+	return M.create_text_lines_from_array(lines)
+end
+
+---@param lines JavaHelpers.TextLines
+---@param start_line integer
+---@param end_line integer
+---@return string[] result
+function M.line_range_as_string_array(lines, start_line, end_line)
+	local result = {}
+
+	for line_number = start_line, end_line, 1 do
+		local line = lines.get_line_text(line_number)
+
+		table.insert(result, line)
+	end
+
+	return result
+end
+
+---@param lines JavaHelpers.TextLines
+---@param start_line integer
+---@param end_line integer
+---@return string result
+function M.line_range_as_string(lines, start_line, end_line)
+	local result = ""
+
+	for line_number = start_line, end_line, 1 do
+		local line = lines.get_line_text(line_number)
+
+		result = result .. line .. "\n"
+	end
+
+	return result
+end
+
+---@param bufnr integer
+---@param from_line integer
+---@param to_line integer
+---@param lines string[]
+function M.replace_buffer_line_range_with_lines_array(bufnr, from_line, to_line, lines)
+	vim.api.nvim_buf_set_lines(bufnr, from_line - 1, to_line, false, lines)
+end
+
+---@param bufnr integer
+---@param from_line integer
+---@param to_line integer
+---@param lines JavaHelpers.TextLines
+function M.replace_buffer_line_range_with_lines(bufnr, from_line, to_line, lines)
+	local lines_array = M.line_range_as_string_array(lines, 1, lines.line_count)
+
+	return M.replace_buffer_line_range_with_lines_array(bufnr, from_line, to_line, lines_array)
+end
+
+---@param bufnr integer
+---@param from_line integer
+---@param to_line integer
+---@param lines string
+function M.replace_buffer_line_range_with_string(bufnr, from_line, to_line, lines)
+	local lines_array = M.split_lines(lines)
+
+	return M.replace_buffer_line_range_with_lines_array(bufnr, from_line, to_line, lines_array)
 end
 
 return M
