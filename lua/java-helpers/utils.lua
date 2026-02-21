@@ -1,7 +1,30 @@
 local M = {}
 
-local log = require("plenary.log").new({ plugin = "java-helpers", level = "trace" })
-M.log = log
+local log = require("plenary.log").new({
+	plugin = "java-helpers",
+	level = "trace",
+	use_console = false,
+})
+
+-- Notifies the user with the supplied message
+---@param message string
+local function info(message)
+	log.info(message)
+	vim.notify(message)
+end
+
+-- Notifies the user with the supplied error message
+---@param message string
+local function error(message)
+	log.error(message)
+	vim.notify(message)
+end
+
+M.log = {
+	info = info,
+	error = error,
+	trace = log.trace,
+}
 
 local function can_window_switch_buffers(win)
 	return not vim.wo[win].winfixbuf

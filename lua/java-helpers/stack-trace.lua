@@ -1024,7 +1024,13 @@ local function select_obfuscation_file()
 	end
 end
 
-function M.select_obfuscation_file()
+---@param file_path string? File path to select or nil or empty string if should ask the user to select a file
+function M.select_obfuscation_file(file_path)
+	if file_path and #file_path > 0 then
+		current_obfusction_file = file_path
+		return
+	end
+
 	run_in_bg(function()
 		select_obfuscation_file()
 	end)
@@ -1110,6 +1116,25 @@ function M.deobfuscate(register_name)
 	end)
 end
 
+---@param lines JavaHelpers.TextLines
+---@param cursor_line integer
+---@return integer? next_start_line
+local function find_next_stack_trace(lines, cursor_line)
+	local line_count = lines.line_count
+	local line = cursor_line
+
+	while line < line_count do
+		local line_text = lines.get_line_text(line)
+	end
+end
+
+-- Finds the next stack trace after the current cursor position
+function M.find_next_stack_trace()
+	local bufnr = vim.api.nvim_win_get_buf(win)
+	local cursor_line = vim.api.nvim_win_get_cursor(win)[1]
+	local lines = utils.create_text_lines_from_buffer(bufnr)
+end
+
 ---@param opts JavaHelpers.StackTraceConfig? User-provided configuration to override defaults.
 function M.setup(opts)
 	log.trace("Setup stack trace with options " .. vim.inspect(opts))
@@ -1168,8 +1193,17 @@ function M.setup(opts)
 		nargs = "?",
 	})
 
-	vim.api.nvim_create_user_command("JavaHelpersSelectObfuscationFile", M.select_obfuscation_file, {
+	vim.api.nvim_create_user_command("JavaHelpersSelectObfuscationFile", function(command_opts)
+		M.select_obfuscation_file(command_opts.args)
+	end, {
 		desc = "Select obfuscation file",
+		nargs = "?",
+	})
+
+	vim.api.nvim_create_user_command("JavaHelpersForgetObfuscationFile", function()
+		current_obfusction_file = nil
+	end, {
+		desc = "Forget obfuscation file",
 	})
 end
 
