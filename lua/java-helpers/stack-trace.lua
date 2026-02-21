@@ -1121,18 +1121,156 @@ end
 ---@return integer? next_start_line
 local function find_next_stack_trace(lines, cursor_line)
 	local line_count = lines.line_count
-	local line = cursor_line
+	local line_to_start_from = cursor_line
+
+	-- Go past the end of the current stack trace
+
+	while line_to_start_from < line_count do
+		local line_text = lines.get_line_text(line_to_start_from)
+
+		if is_caused_by_line(line_text) or is_more_line(line_text) then
+			line_to_start_from = line_to_start_from + 1
+		else
+			local element, _, last_line = parse_java_stack_trace_line_in_lines(lines, line_to_start_from)
+
+			if element then
+				line_to_start_from = last_line + 1
+			else
+				break
+			end
+		end
+	end
+
+	local line = line_to_start_from
 
 	while line < line_count do
 		local line_text = lines.get_line_text(line)
+
+		if is_caused_by_line(line_text) or is_more_line(line_text) then
+			line = line + 1
+		else
+			local element, first_line = parse_java_stack_trace_line_in_lines(lines, line)
+
+			if element then
+				return first_line
+			end
+
+			line = line + 1
+		end
 	end
+
+	return nil
 end
 
 -- Finds the next stack trace after the current cursor position
-function M.find_next_stack_trace()
+---@param win integer
+function M.go_to_next_stack_trace(win)
 	local bufnr = vim.api.nvim_win_get_buf(win)
 	local cursor_line = vim.api.nvim_win_get_cursor(win)[1]
 	local lines = utils.create_text_lines_from_buffer(bufnr)
+	local line_to_go_to = find_next_stack_trace(lines, cursor_line)
+
+	if not line_to_go_to then
+		log.error("No more Java stack traces found")
+		return
+	end
+
+	vim.api.nvim_win_set_cursor(win, { line_to_go_to, 0 })
+end
+
+---@param lines JavaHelpers.TextLines
+---@param cursor_line integer
+---@return integer? next_start_line
+local function find_prev_stack_trace(lines, cursor_line)
+	local line_count = lines.line_count
+	local line_to_start_from = cursor_line
+
+	-- Go past the beginning of the current stack trace
+
+	while line_to_start_from > 1 do
+		local line_text = lines.get_line_text(line_to_start_from)
+
+		if is_caused_by_line(line_text) or is_more_line(line_text) then
+			line_to_start_from = line_to_start_from - 1
+		else
+			local element, first_line = parse_java_stack_trace_line_in_lines(lines, line_to_start_from)
+
+			if element then
+				line_to_start_from = first_line - 1
+			else
+				break
+			end
+		end
+	end
+
+	log.trace("Searching for previous stack trace from line " .. line_to_start_from)
+
+	-- Find last line of previous stack trace
+
+	local line = line_to_start_from
+	local last_line_of_prev_stack_trace = nil
+
+	while line >= 1 do
+		local line_text = lines.get_line_text(line)
+
+		if is_caused_by_line(line_text) or is_more_line(line_text) then
+			line = line - 1
+		else
+			local element, first_line = parse_java_stack_trace_line_in_lines(lines, line)
+
+			if element then
+				last_line_of_prev_stack_trace = first_line
+				break
+			end
+
+			line = line - 1
+		end
+	end
+
+	if not last_line_of_prev_stack_trace then
+		log.trace("Did not find last line of previous stack trace")
+		return nil
+	end
+
+	log.trace("Last line of previous stack trace is " .. last_line_of_prev_stack_trace)
+
+	local first_line_of_prev_stack_trace = last_line_of_prev_stack_trace
+	line = last_line_of_prev_stack_trace
+
+	while line >= 1 do
+		local line_text = lines.get_line_text(line)
+
+		if is_caused_by_line(line_text) or is_more_line(line_text) then
+			line = line - 1
+		else
+			local element, first_line = parse_java_stack_trace_line_in_lines(lines, line)
+
+			if element then
+				first_line_of_prev_stack_trace = first_line
+				line = first_line - 1
+			else
+				break
+			end
+		end
+	end
+
+	return first_line_of_prev_stack_trace
+end
+
+-- Finds the next stack trace after the current cursor position
+---@param win integer
+function M.go_to_prev_stack_trace(win)
+	local bufnr = vim.api.nvim_win_get_buf(win)
+	local cursor_line = vim.api.nvim_win_get_cursor(win)[1]
+	local lines = utils.create_text_lines_from_buffer(bufnr)
+	local line_to_go_to = find_prev_stack_trace(lines, cursor_line)
+
+	if not line_to_go_to then
+		log.error("No previous Java stack trace found")
+		return
+	end
+
+	vim.api.nvim_win_set_cursor(win, { line_to_go_to, 0 })
 end
 
 ---@param opts JavaHelpers.StackTraceConfig? User-provided configuration to override defaults.
@@ -1177,6 +1315,18 @@ function M.setup(opts)
 	end, {
 		desc = "Go to top of Java stack trace",
 		nargs = "?",
+	})
+
+	vim.api.nvim_create_user_command("JavaHelpersGoToNextStackTrace", function()
+		M.go_to_next_stack_trace(0)
+	end, {
+		desc = "Go to next Java stack trace",
+	})
+
+	vim.api.nvim_create_user_command("JavaHelpersGoToPrevStackTrace", function()
+		M.go_to_prev_stack_trace(0)
+	end, {
+		desc = "Go to previous Java stack trace",
 	})
 
 	vim.api.nvim_create_user_command("JavaHelpersSendStackTraceToQuickfix", function(command_opts)
