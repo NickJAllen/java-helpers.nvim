@@ -9,6 +9,9 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
   * [New File Creation](#new-file-creation)
 - [Demos](#demos)
   * [Selecting a line from a stack trace using Snacks picker](#selecting-a-line-from-a-stack-trace-using-snacks-picker)
+  * [Deobfuscate a stack trace in place in a log file](#deobfuscate-a-stack-trace-in-place-in-a-log-file)
+  * [Create a new Java class in same package as current Java file](#create-a-new-java-class-in-same-package-as-current-java-file)
+  * [Create a new type in the same package as current Java file](#create-a-new-type-in-the-same-package-as-current-java-file)
 - [Installation and Configuration](#installation-and-configuration)
   * [lazy.nvim](#lazynvim)
 - [Usage](#usage)
@@ -33,8 +36,6 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
 * Supports jdtls or java_language_server LSP in order to look up file path from class name
 * Quickly and easily deobfuscate stack traces (in place, on the clipboard, or just directly use the obfuscated one and it's deobfuscated automatically for you)
 
-![Java Stack Picker](https://github.com/NickJAllen/resources/blob/main/java-helpers/java-stack-picker.gif)
-
 ### New File Creation
 
 * **Automatic Package Detection:** Intelligent determination of the correct package declaration based on standard Maven/Gradle source directories (src/main/java, src/test/java, etc.) and the current file path.  
@@ -46,7 +47,28 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
 ## Demos
 
 ### Selecting a line from a stack trace using Snacks picker
+
+Demonstation of the ":JavaHelpersPickStackTraceLine" command:
+
 ![Java Stack Picker](https://github.com/NickJAllen/resources/blob/main/java-helpers/java-stack-picker.gif)
+
+### Deobfuscate a stack trace in place in a log file
+
+Demonstation of the ":JavaHelpersDeobfuscate" command:
+
+![Inplace Stack Deobfuscation](https://github.com/NickJAllen/resources/blob/main/java-helpers/inplace-stack-deobfuscation.gif)
+
+### Create a new Java class in same package as current Java file
+
+Demonstation of the ":JavaHelpersNewFile Class"
+
+![New Class Creation](https://github.com/NickJAllen/resources/blob/main/java-helpers/new-class-creation.gif)
+
+### Create a new type in the same package as current Java file
+
+Demonstation of the ":JavaHelpersNewFile"
+
+![Java Stack Picker](https://github.com/NickJAllen/resources/blob/main/java-helpers/new-type-creation.gif)
 
 ## Installation and Configuration
 
