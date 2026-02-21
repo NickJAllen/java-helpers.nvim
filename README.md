@@ -2,18 +2,36 @@
 
 A lightweight Neovim plugin written in Lua for quickly navigating printed Java stack traces and creating new Java files (Classes, Interfaces, Enums, Records, etc.) with the correct package declaration automatically determined from the current buffer or file explorer context.
 
-## **✨ Features**
+<!-- toc -->
+
+- [Features](#features)
+  * [Java Stack Trace Navigation](#java-stack-trace-navigation)
+  * [New File Creation](#new-file-creation)
+- [Demos](#demos)
+  * [Selecting a line from a stack trace using Snacks picker](#selecting-a-line-from-a-stack-trace-using-snacks-picker)
+- [Installation and Configuration](#installation-and-configuration)
+  * [lazy.nvim](#lazynvim)
+- [Usage](#usage)
+  * [**1\. Interactive File Creation**](#1-interactive-file-creation)
+  * [**2\. Direct File Creation (Using Arguments)**](#2-direct-file-creation-using-arguments)
+- [**🔧 Configuration**](#%F0%9F%94%A7-configuration)
+  * [**Template Placeholders**](#template-placeholders)
+
+<!-- tocstop -->
+
+## Features
 
 ### Java Stack Trace Navigation
 
 * Ability to jump to any line in a stack trace
-* Supports nested Java exceptions
+* Supports nested Java exceptions so that navigation works in actual call order (not printed order)
 * Use Snacks picker to select a line from stack trace 
 * All commands can get stack trace from current buffer (default) or a vim register (e.g '+' for system clipboard) if provided as extra argument to command
 * Commands to quickly navigate up and down or to the top or bottom of the stack trace
+* Commands to go to next and previous stack trace (e.g when viewing a log file)
 * Send stack trace to quickfix list
 * Supports jdtls or java_language_server LSP in order to look up file path from class name
-* Quickly and easily deobfuscate stack traces
+* Quickly and easily deobfuscate stack traces (in place, on the clipboard, or just directly use the obfuscated one and it's deobfuscated automatically for you)
 
 ![Java Stack Picker](https://github.com/NickJAllen/resources/blob/main/java-helpers/java-stack-picker.gif)
 
@@ -25,11 +43,16 @@ A lightweight Neovim plugin written in Lua for quickly navigating printed Java s
 * **Customizable:** Easily override built-in templates or define your own custom templates.  
 * **LSP Formatting:** Automatically formats the newly created file using the attached Language Server (via vim.lsp.buf.format()) if configured.
 
-## **⚙️ Installation**
+## Demos
+
+### Selecting a line from a stack trace using Snacks picker
+![Java Stack Picker](https://github.com/NickJAllen/resources/blob/main/java-helpers/java-stack-picker.gif)
+
+## Installation and Configuration
 
 Use your favorite package manager.
 
-### **lazy.nvim**
+### lazy.nvim
 
 An example for lazy.nvim with some quick key bindings to navigate Java stack traces and to create Java files:
 
@@ -111,7 +134,7 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
 
 ```
 
-## **🚀 Usage**
+## Usage
 
 The plugin exposes the following user commands: 
 
