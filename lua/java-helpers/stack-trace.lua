@@ -522,7 +522,7 @@ local function go_to_java_stack_trace_element(element)
 	if file_path then
 		utils.go_to_file_and_line_number(file_path, element.line_number)
 	else
-		log.error(error)
+		log.error(vim.inspect(error))
 	end
 end
 
@@ -1273,6 +1273,57 @@ function M.go_to_prev_stack_trace(win)
 	vim.api.nvim_win_set_cursor(win, { line_to_go_to, 0 })
 end
 
+---@param lines JavaHelpers.TextLines
+---@return integer[] start_lines
+local function find_all_stack_trace_start_lines(lines)
+	local line = 1
+	local count = lines.line_count
+	local start_lines = {}
+
+	while line <= count do
+		local start_line = find_next_stack_trace(lines, line)
+
+		if not start_line then
+			break
+		end
+
+		local element, first_line, last_line = parse_java_stack_trace_line_in_lines(lines, start_line)
+
+		assert(element)
+		assert(first_line)
+		assert(last_line)
+
+		table.insert(start_lines, first_line)
+		line = last_line
+	end
+
+	return start_lines
+end
+
+function M.pick_java_stack_trace(win)
+	local bufnr = vim.api.nvim_win_get_buf(win)
+	local file_path = vim.api.nvim_buf_get_name(bufnr)
+	local lines = utils.create_text_lines_from_buffer(bufnr)
+	local start_lines = find_all_stack_trace_start_lines(lines)
+
+	if #start_lines == 0 then
+		log.info("No stack traces found")
+		return
+	end
+
+	run_in_bg(function()
+		if #start_lines == 1 then
+			vim.api.nvim_win_set_cursor(win, { start_lines[1], 0 })
+		else
+			local selected_line = utils.await_pick_line_number_in_file("Select strack trace: ", file_path, start_lines)
+
+			if selected_line then
+				vim.api.nvim_win_set_cursor(win, { selected_line, 0 })
+			end
+		end
+	end)
+end
+
 ---@param opts JavaHelpers.StackTraceConfig? User-provided configuration to override defaults.
 function M.setup(opts)
 	log.trace("Setup stack trace with options " .. vim.inspect(opts))
@@ -1293,6 +1344,12 @@ function M.setup(opts)
 	end, {
 		desc = "Pick line frome Java stack trace",
 		nargs = "?",
+	})
+
+	vim.api.nvim_create_user_command("JavaHelpersPickStackTrace", function(command_opts)
+		M.pick_java_stack_trace(0)
+	end, {
+		desc = "Pick Java stack trace",
 	})
 
 	vim.api.nvim_create_user_command("JavaHelpersGoDownStackTrace", M.go_down_java_stack_trace, {
