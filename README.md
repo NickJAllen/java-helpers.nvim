@@ -134,6 +134,7 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
       { '<leader>jG', ':JavaHelpersGoToStackTraceLine +<cr>', desc = 'Go to Java stack trace line on Clipboard' },
       { '<leader>jp', ':JavaHelpersPickStackTraceLine<cr>', desc = 'Pick Java stack trace line' },
       { '<leader>jP', ':JavaHelpersPickStackTraceLine +<cr>', desc = 'Pick Java stack trace line from Clipboard' },
+      { '<leader>js', ':JavaHelpersPickStackTrace<cr>', desc = 'Pick Java stack trace in current file' },
       { '[j', ':JavaHelpersGoUpStackTrace<cr>', desc = 'Go up Java stack trace' },
       { ']j', ':JavaHelpersGoDownStackTrace<cr>', desc = 'Go down Java stack trace' },
       { '[J', ':JavaHelpersGoToPrevStackTrace<cr>', desc = 'Go to previous Java stack trace' },
