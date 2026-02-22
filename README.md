@@ -84,6 +84,7 @@ An example for lazy.nvim with some quick key bindings to navigate Java stack tra
     cmd = {
       'JavaHelpersNewFile',
       'JavaHelpersPickStackTraceLine',
+      'JavaHelpersPickStackTrace',
       'JavaHelpersGoToStackTraceLine',
       'JavaHelpersGoUpStackTrace',
       'JavaHelpersGoDownStackTrace',
