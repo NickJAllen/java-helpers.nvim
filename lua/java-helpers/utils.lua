@@ -94,6 +94,14 @@ function M.go_to_file_and_line_number(file_path, line_number, col)
 	vim.api.nvim_win_set_cursor(0, { line_number, col })
 end
 
+---@param bufnr integer
+---@return string text
+function M.get_buffer_text(bufnr)
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+	return table.concat(lines, "\n")
+end
+
 --- @param str string
 --- @param ending string
 --- @return boolean

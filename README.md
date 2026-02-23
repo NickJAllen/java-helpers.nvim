@@ -60,13 +60,13 @@ Demonstation of the ":JavaHelpersDeobfuscate" command:
 
 ### Create a new Java class in same package as current Java file
 
-Demonstation of the ":JavaHelpersNewFile Class"
+Demonstation of the ":JavaHelpersNewFile Class" command:
 
 ![New Class Creation](https://github.com/NickJAllen/resources/blob/main/java-helpers/new-class-creation.gif)
 
 ### Create a new type in the same package as current Java file
 
-Demonstation of the ":JavaHelpersNewFile"
+Demonstation of the ":JavaHelpersNewFile" command:
 
 ![Java Stack Picker](https://github.com/NickJAllen/resources/blob/main/java-helpers/new-type-creation.gif)
 
