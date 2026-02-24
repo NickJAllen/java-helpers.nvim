@@ -94,6 +94,14 @@ function M.go_to_file_and_line_number(file_path, line_number, col)
 	vim.api.nvim_win_set_cursor(0, { line_number, col })
 end
 
+---@param bufnr integer
+---@return string text
+function M.get_buffer_text(bufnr)
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+	return table.concat(lines, "\n")
+end
+
 --- @param str string
 --- @param ending string
 --- @return boolean
@@ -412,54 +420,6 @@ function M.await_pick_file(prompt, directory)
 					log.trace("User canceled file selection")
 					coroutine.resume(co, nil)
 				end
-			end)
-		end,
-	})
-
-	return coroutine.yield()
-end
-
----@param prompt string
----@param file_path string
----@param line_numbers integer[]
----@return integer? selected_line_number
-function M.await_pick_line_number_in_file(prompt, file_path, line_numbers)
-	log.trace("Selecting line number in file " .. file_path)
-
-	local co = coroutine.running()
-
-	assert(co, "await_pick_line_number_in_file must be called within a coroutine")
-
-	local picker = require("snacks.picker")
-
-	local items = {}
-
-	for index, line_number in ipairs(line_numbers) do
-		table.insert(items, {
-			file = file_path,
-			pos = { line_number, 0 },
-		})
-	end
-
-	picker.pick({
-		source = "stack_trace",
-		items = items,
-		prompt = prompt,
-		confirm = function(p, item)
-			p:close()
-
-			vim.schedule(function()
-				if not item then
-					log.trace("No line number selected")
-					coroutine.resume(co, nil)
-					return
-				end
-
-				local line_number = item.pos[1]
-
-				log.info("Selected line " .. line_number .. " in " .. file_path)
-
-				coroutine.resume(co, line_number)
 			end)
 		end,
 	})

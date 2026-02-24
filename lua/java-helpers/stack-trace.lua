@@ -923,19 +923,53 @@ local function java_stack_trace_to_snacks_items(stack_trace)
 	return nil
 end
 
+---@param cols table
+---@param element JavaHelpers.StackTraceElement
+---@param max_class_and_method_length integer
+local function add_snacks_picker_columns_for_element(cols, element, max_class_and_method_length)
+	assert(element)
+	assert(max_class_and_method_length > 0)
+
+	local class_name = element.class_name
+	local method_name = element.method_name
+	local width = #class_name + 1 + #method_name
+
+	assert(width <= max_class_and_method_length)
+
+	table.insert(cols, { class_name, "SnacksLabel" })
+	table.insert(cols, { ".", "SnacksPickerSpecial" })
+	table.insert(cols, { method_name, "SnacksPickerSpecial" })
+	table.insert(cols, { string.rep(" ", max_class_and_method_length - width + 2), "SnacksLabel" })
+
+	local file_name = element.file_name
+
+	if file_name then
+		table.insert(cols, { file_name, "SnacksPickerFile" })
+		table.insert(cols, { ":", "SnacksLabel" })
+	end
+
+	table.insert(cols, { tostring(element.line_number), "SnacksPickerRow" })
+end
+
 ---@param stack_trace JavaHelpers.StackTraceElement[]
 ---@param initially_selected integer
-local function pick_java_stack_trace_line(stack_trace, initially_selected)
+---@return integer? selected_index
+local function await_pick_java_stack_trace_line(stack_trace, initially_selected)
+	local co = coroutine.running()
+
+	assert(co, "await_pick_java_stack_trace_line must be called within a coroutine")
+
 	if #stack_trace == 1 then
-		go_to_java_stack_trace_element(stack_trace[1])
-		return
+		return 1
 	end
 
 	local items = java_stack_trace_to_snacks_items(stack_trace)
 
 	if not items then
-		return
+		return nil
 	end
+
+	assert(#items > 0)
 
 	local max_class_and_method_length = 1
 
@@ -960,43 +994,23 @@ local function pick_java_stack_trace_line(stack_trace, initially_selected)
 			local cols = {}
 			local element = item.java_stack_trace_element
 
-			assert(element)
-
-			local class_name = element.class_name
-			local method_name = element.method_name
-			local width = #class_name + 1 + #method_name
-
-			table.insert(cols, { class_name, "SnacksLabel" })
-			table.insert(cols, { ".", "SnacksPickerSpecial" })
-			table.insert(cols, { method_name, "SnacksPickerSpecial" })
-			table.insert(cols, { string.rep(" ", max_class_and_method_length - width + 2), "SnacksLabel" })
-
-			local file_name = element.file_name
-
-			if file_name then
-				table.insert(cols, { file_name, "SnacksPickerFile" })
-				table.insert(cols, { ":", "SnacksLabel" })
-			end
-
-			table.insert(cols, { tostring(element.line_number), "SnacksPickerRow" })
+			add_snacks_picker_columns_for_element(cols, element, max_class_and_method_length)
 
 			return cols
 		end,
 		confirm = function(p, item)
 			p:close()
-			if item then
-				utils.go_to_file_and_line_number(item.file, item.pos[1])
-
-				if stack_trace == current_loaded_stack_trace then
-					local index = item.java_stack_trace_index
-
-					if index then
-						current_loaded_stack_trace_index = index
-					end
+			vim.schedule(function()
+				if item then
+					coroutine.resume(co, item.java_stack_trace_index)
+				else
+					coroutine.resume(co, nil)
 				end
-			end
+			end)
 		end,
 	})
+
+	return coroutine.yield()
 end
 
 ---@param register_name_or_text_to_parse string? If a single character then defines the register name, if multiple characters then will parse trhe supplied text, if nil or empty then uses the text around the current cursor position
@@ -1009,7 +1023,18 @@ function M.pick_java_stack_trace_line(register_name_or_text_to_parse)
 			return
 		end
 
-		pick_java_stack_trace_line(current_loaded_stack_trace, current_loaded_stack_trace_index)
+		local stack_trace = current_loaded_stack_trace
+
+		local index = await_pick_java_stack_trace_line(stack_trace, current_loaded_stack_trace_index)
+
+		if index then
+			local element = stack_trace[index]
+
+			go_to_java_stack_trace_element(element)
+
+			current_loaded_stack_trace = stack_trace
+			current_loaded_stack_trace_index = index
+		end
 	end)
 end
 
@@ -1042,7 +1067,7 @@ local function select_obfuscation_file_if_needed()
 	end
 end
 
----@param register_name string? Register name or nil to deobfuscate under the cursor
+---@param register_name string Register name or nil to deobfuscate under the cursor
 local function deobfuscate_register(register_name)
 	select_obfuscation_file_if_needed()
 
@@ -1182,7 +1207,6 @@ end
 ---@param cursor_line integer
 ---@return integer? next_start_line
 local function find_prev_stack_trace(lines, cursor_line)
-	local line_count = lines.line_count
 	local line_to_start_from = cursor_line
 
 	-- Go past the beginning of the current stack trace
@@ -1273,12 +1297,18 @@ function M.go_to_prev_stack_trace(win)
 	vim.api.nvim_win_set_cursor(win, { line_to_go_to, 0 })
 end
 
+---@class JavaHelpers.FoundStackTrace
+---@field start_line integer
+---@field element JavaHelpers.StackTraceElement
+
 ---@param lines JavaHelpers.TextLines
----@return integer[] start_lines
-local function find_all_stack_trace_start_lines(lines)
+---@return JavaHelpers.FoundStackTrace[] found_stack_traces
+local function find_all_stack_traces(lines)
 	local line = 1
 	local count = lines.line_count
-	local start_lines = {}
+	---
+	---@type JavaHelpers.FoundStackTrace[]
+	local found_stack_traces = {}
 
 	while line <= count do
 		local start_line = find_next_stack_trace(lines, line)
@@ -1293,33 +1323,141 @@ local function find_all_stack_trace_start_lines(lines)
 		assert(first_line)
 		assert(last_line)
 
-		table.insert(start_lines, first_line)
+		table.insert(found_stack_traces, {
+			start_line = first_line,
+			element = element,
+		})
+
 		line = last_line
 	end
 
-	return start_lines
+	return found_stack_traces
+end
+
+---@param bufnr integer
+---@param found_stack_traces JavaHelpers.FoundStackTrace[]
+---@return JavaHelpers.FoundStackTrace? selected
+local function await_pick_java_stack_trace(bufnr, found_stack_traces)
+	log.trace("Selecting line number in buffer " .. bufnr)
+
+	local co = coroutine.running()
+
+	assert(co, "await_pick_line_number_in_file must be called within a coroutine")
+
+	if #found_stack_traces == 0 then
+		return nil
+	end
+
+	if #found_stack_traces == 1 then
+		return found_stack_traces[1]
+	end
+
+	local is_file = vim.api.nvim_get_option_value("buftype", { buf = bufnr }) == ""
+	local file = nil
+
+	if is_file then
+		file = vim.api.nvim_buf_get_name(bufnr)
+	else
+		-- This is not a normal file so write it to a temporary file
+		file = vim.fn.tempname()
+
+		local f = io.open(file, "w")
+
+		if f then
+			f:write(utils.get_buffer_text(bufnr))
+			f:close()
+		end
+	end
+
+	local picker = require("snacks.picker")
+	local items = {}
+	local max_class_and_method_length = 1
+
+	for _, found_stack_trace in ipairs(found_stack_traces) do
+		local line_number = found_stack_trace.start_line
+		local element = found_stack_trace.element
+
+		local class_name = element.class_name
+		local method_name = element.method_name
+		local width = #class_name + 1 + #method_name
+
+		if width > max_class_and_method_length then
+			max_class_and_method_length = width
+		end
+
+		table.insert(items, {
+			file = file,
+			pos = { found_stack_trace.start_line, 0 },
+			found_java_stack_trace = found_stack_trace,
+		})
+	end
+
+	picker.pick({
+		items = items,
+		prompt = "Select strack trace: ",
+		format = function(item, _)
+			local found_java_stack_trace = item.found_java_stack_trace
+			local element = found_java_stack_trace.element
+			local cols = {}
+
+			add_snacks_picker_columns_for_element(cols, element, max_class_and_method_length)
+
+			return cols
+		end,
+		confirm = function(p, item)
+			p:close()
+
+			if not is_file then
+				os.remove(file)
+			end
+
+			vim.schedule(function()
+				if not item then
+					log.trace("No stack trace selected")
+					coroutine.resume(co, nil)
+					return
+				end
+
+				local selected = item.found_java_stack_trace
+
+				log.trace("Selected stack trace " .. selected.start_line .. " in " .. bufnr)
+
+				coroutine.resume(co, selected)
+			end)
+		end,
+	})
+
+	return coroutine.yield()
 end
 
 function M.pick_java_stack_trace(win)
+	if win == 0 then
+		win = vim.api.nvim_get_current_win()
+	end
+
 	local bufnr = vim.api.nvim_win_get_buf(win)
 	local file_path = vim.api.nvim_buf_get_name(bufnr)
 	local lines = utils.create_text_lines_from_buffer(bufnr)
-	local start_lines = find_all_stack_trace_start_lines(lines)
+	local found_stack_traces = find_all_stack_traces(lines)
 
-	if #start_lines == 0 then
+	if #found_stack_traces == 0 then
 		log.info("No stack traces found")
 		return
 	end
 
-	run_in_bg(function()
-		if #start_lines == 1 then
-			vim.api.nvim_win_set_cursor(win, { start_lines[1], 0 })
-		else
-			local selected_line = utils.await_pick_line_number_in_file("Select strack trace: ", file_path, start_lines)
+	if #found_stack_traces == 1 then
+		vim.api.nvim_win_set_buf(win, bufnr)
+		vim.api.nvim_win_set_cursor(win, { found_stack_traces[1].start_line, 0 })
+		return
+	end
 
-			if selected_line then
-				vim.api.nvim_win_set_cursor(win, { selected_line, 0 })
-			end
+	run_in_bg(function()
+		local selected_stack_trace = await_pick_java_stack_trace(bufnr, found_stack_traces)
+
+		if selected_stack_trace then
+			vim.api.nvim_set_current_win(win)
+			vim.api.nvim_win_set_buf(win, bufnr)
+			vim.api.nvim_win_set_cursor(win, { selected_stack_trace.start_line, 0 })
 		end
 	end)
 end
@@ -1346,7 +1484,7 @@ function M.setup(opts)
 		nargs = "?",
 	})
 
-	vim.api.nvim_create_user_command("JavaHelpersPickStackTrace", function(command_opts)
+	vim.api.nvim_create_user_command("JavaHelpersPickStackTrace", function()
 		M.pick_java_stack_trace(0)
 	end, {
 		desc = "Pick Java stack trace",
