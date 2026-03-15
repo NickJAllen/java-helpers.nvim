@@ -351,7 +351,7 @@ function M.await_lsp_request(client, request, params)
 
 	assert(co, "request_async must be called from within a coroutine")
 
-	local request_id = client.request(request, params, function(err, result)
+	local request_id = client:request(request, params, function(err, result)
 		vim.schedule(function()
 			coroutine.resume(co, err, result)
 		end)
